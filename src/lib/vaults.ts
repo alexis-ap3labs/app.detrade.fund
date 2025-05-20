@@ -149,7 +149,7 @@ export const ALL_VAULTS = [
     administrator: "0x66DbceE7feA3287B3356227d6F3DfF3CeFbC6F3C",
     priceOracle: "0x66DbceE7feA3287B3356227d6F3DfF3CeFbC6F3C",
     performanceFee: "15%",
-    feeReceiver: "0x66DbceE7feA3287B3356227d6F3DfF3CeFbC6F3C",
+    feeReceiver: "0x7489d305F10760d686F8d4BB2e211a7f31c2f787",
     created_at: "15/05/2025",
     description: "This vault maximizes risk-adjusted yields for your ETH by diversifying across Ethereum-based DeFi protocols and staking opportunities for optimal market returns.",
     strategy: "Strategies include staking, providing liquidity in ETH pairs, participating in DeFi protocols, and exploring opportunities that deliver high yields with managed risk.",

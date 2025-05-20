@@ -112,8 +112,15 @@ async function backgroundRefresh(tokens: string[]) {
   const initialLoad = !Object.keys(get(pricesState)).length;
   
   if (initialLoad) {
-    // Chargement initial : requêtes parallèles
-    await Promise.all(tokens.map(token => updateTokenPrice(token)));
+    // Chargement initial : requêtes parallèles avec priorité pour WETH
+    const sortedTokens = [...tokens].sort((a, b) => {
+      if (a === 'WETH') return -1;
+      if (b === 'WETH') return 1;
+      return 0;
+    });
+    
+    // Faire les requêtes en parallèle mais avec priorité pour WETH
+    await Promise.all(sortedTokens.map(token => updateTokenPrice(token)));
   } else {
     // Rafraîchissement normal : requêtes séquentielles avec délai
     for (const token of tokens) {

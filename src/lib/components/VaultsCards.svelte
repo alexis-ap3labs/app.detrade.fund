@@ -29,7 +29,24 @@
 
     if (vaultsToUpdate.length > 0) {
       console.log('Updating latest TVL data for active vaults:', vaultsToUpdate.map(v => v.id));
-      await latestTvl.refreshAllLatestTvls(vaultsToUpdate.map(v => v.id));
+      try {
+        // Utiliser Promise.allSettled pour gérer les erreurs individuellement
+        const results = await Promise.allSettled(
+          vaultsToUpdate.map(vault => latestTvl.refreshLatestTvl(vault.id))
+        );
+        
+        // Log des résultats pour le debugging
+        results.forEach((result, index) => {
+          const vault = vaultsToUpdate[index];
+          if (result.status === 'fulfilled') {
+            console.log(`Successfully updated TVL for ${vault.id}`);
+          } else {
+            console.error(`Failed to update TVL for ${vault.id}:`, result.reason);
+          }
+        });
+      } catch (error) {
+        console.error('Error updating TVL data:', error);
+      }
     }
   }
 
@@ -89,16 +106,23 @@
   // Fonction pour charger les données initiales
   async function loadInitialData() {
     try {
-      // Charger d'abord les données TVL
+      // Initialiser d'abord le store des prix avec la liste des tokens à suivre
+      const activeVaults = ALL_VAULTS.filter(vault => vault.isActive || isAdminWallet);
+      const uniqueTokens = [...new Set(activeVaults.map(v => v.underlyingToken))];
+      // Ajouter WETH si nécessaire
+      if (!uniqueTokens.includes('WETH')) {
+        uniqueTokens.push('WETH');
+      }
+      prices.initialize(uniqueTokens);
+      
+      // Attendre un court instant pour laisser le temps aux prix de se charger
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Charger ensuite les données TVL
       await fetchAllTvls();
       
       // Puis charger les données APR
       await fetchAllAprs();
-      
-      // Initialiser le store des prix avec la liste des tokens à suivre
-      const activeVaults = ALL_VAULTS.filter(vault => vault.isActive || isAdminWallet);
-      const uniqueTokens = [...new Set(activeVaults.map(v => v.underlyingToken))];
-      prices.initialize(uniqueTokens);
     } catch (error) {
       console.error('Error loading initial data:', error);
     }

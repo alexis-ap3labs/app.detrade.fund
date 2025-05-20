@@ -70,16 +70,16 @@
     datasets: [{
       data: sortedAlloc.map(([, data]) => data.percentage),
       backgroundColor: [
+        '#E3F2FD', // bleu très pâle
+        '#BBDEFB', // bleu très clair
+        '#81D4FA', // bleu pâle
+        '#64B5F6', // bleu clair
+        '#42A5F5', // bleu vif
         '#1E88E5', // bleu principal
-        '#42A5F5', // bleu vif
-        '#64B5F6', // bleu clair
+        '#2196F3', // bleu medium
+        '#1565C0', // bleu foncé
         '#90CAF9', // bleu pastel
-        '#BBDEFB', // bleu très clair
-        '#1E88E5', // retour au bleu principal
-        '#42A5F5', // bleu vif
-        '#64B5F6', // bleu clair
-        '#90CAF9', // bleu pastel
-        '#BBDEFB', // bleu très clair
+        '#4FC3F7', // bleu ciel
       ],
       borderWidth: 0,
     }]
@@ -96,8 +96,16 @@
       tooltip: {
         callbacks: {
           label: function(context: any) {
-            const value = context.raw;
-            return `${value.toFixed(2)}%`;
+            // Get the allocation value (not percentage)
+            const index = context.dataIndex;
+            const alloc = sortedAlloc[index]?.[1];
+            if (!alloc) return '';
+            // If value is available, show it with the underlying token symbol
+            if (alloc.value_usdc !== undefined) {
+              // Format with 2 decimals and token symbol
+              return `${parseFloat(alloc.value_usdc).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} USDC`;
+            }
+            return '';
           }
         }
       }
@@ -113,13 +121,11 @@
   </div>
   {#if currentVault?.strategy}
     <div class="strategy-box">
-      <h4 class="title-label">About</h4>
       <p class="compositions-strategy-text">{currentVault.strategy}</p>
     </div>
   {/if}
   <div class="compositions-content">
     <div class="donut-box">
-      <h4 class="title-label">Portfolio allocation</h4>
       <div class="donut-center">
         <div class="donut-chart">
           {#if sortedAlloc.length}
@@ -153,7 +159,6 @@
       {/if}
     </div>
     <div class="legend-box">
-      <h4 class="title-label">Composition</h4>
       <div class="legend-center">
         <div class="legend">
           {#each sortedAlloc as [asset, data], i}
@@ -433,7 +438,7 @@
   margin-bottom: 1.5rem;
 }
 .compositions-strategy-text {
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.8);
   font-size: 1rem;
   font-weight: 400;
   line-height: 1.5;

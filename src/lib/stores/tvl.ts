@@ -142,6 +142,40 @@ function createTvlStore() {
       } catch (error) {
         console.error('Error during TVL refresh:', error);
       }
+    },
+    refreshLatestTvl: async (vaultId: string): Promise<void> => {
+      console.log(`Starting TVL refresh for vault: ${vaultId}`);
+      const startTime = Date.now();
+      
+      try {
+        const response = await fetch(`/api/vaults/${vaultId}/metrics/tvl?latest=true`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const endTime = Date.now();
+        console.log(`TVL data received for ${vaultId} in ${endTime - startTime}ms:`, data);
+        
+        if (!data.latestTvl) {
+          console.warn(`No TVL data received for ${vaultId}`);
+          return;
+        }
+
+        update(state => ({
+          ...state,
+          [vaultId]: {
+            tvl: data.latestTvl.totalAssets,
+            lastUpdated: Date.now(),
+            timestamp: new Date().toISOString()
+          }
+        }));
+        
+        console.log(`Successfully updated TVL store for ${vaultId}`);
+      } catch (error) {
+        console.error(`Error refreshing TVL for ${vaultId}:`, error);
+        throw error; // Propager l'erreur pour la gestion dans le composant
+      }
     }
   };
 }

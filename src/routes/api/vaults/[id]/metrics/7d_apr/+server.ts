@@ -84,44 +84,24 @@ export const GET: RequestHandler = async ({ url, params }) => {
     const latestPps = Number(sortedEvents[0]?.ppsFormatted.toFixed(6));
     const sevenDaysAgo = Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60);
     
-    // Trouver les deux points les plus proches de 7 jours
+    // Trouver l'événement le plus proche de 7 jours dans le passé
     let closestEvent = sortedEvents[0];
-    let secondClosestEvent = sortedEvents[0];
     let minDaysDiff = Infinity;
-    let secondMinDaysDiff = Infinity;
     
     for (const event of sortedEvents) {
       const daysDiff = Math.abs((sortedEvents[0].blockTimestamp - event.blockTimestamp) / (24 * 60 * 60) - 7);
       if (daysDiff < minDaysDiff) {
-        secondMinDaysDiff = minDaysDiff;
-        secondClosestEvent = closestEvent;
         minDaysDiff = daysDiff;
         closestEvent = event;
-      } else if (daysDiff < secondMinDaysDiff) {
-        secondMinDaysDiff = daysDiff;
-        secondClosestEvent = event;
       }
     }
     
-    // Trier les deux événements par date
-    const [beforeEvent, afterEvent] = [closestEvent, secondClosestEvent].sort((a, b) => a.blockTimestamp - b.blockTimestamp);
-    
-    // Calculer l'interpolation linéaire pour obtenir la valeur à exactement 7 jours
-    const targetTimestamp = sortedEvents[0].blockTimestamp - (7 * 24 * 60 * 60);
-    const timeRange = afterEvent.blockTimestamp - beforeEvent.blockTimestamp;
-    const timeFromBefore = targetTimestamp - beforeEvent.blockTimestamp;
-    const interpolationFactor = timeFromBefore / timeRange;
-    
-    const beforePps = Number(beforeEvent.ppsFormatted.toFixed(6));
-    const afterPps = Number(afterEvent.ppsFormatted.toFixed(6));
-    const interpolatedPps = Number((beforePps + (afterPps - beforePps) * interpolationFactor).toFixed(6));
-    
-    // Calculer la durée exacte de 7 jours en secondes
-    const durationInSeconds = 7 * 24 * 60 * 60;
+    // Calculer la durée exacte en secondes
+    const durationInSeconds = sortedEvents[0].blockTimestamp - closestEvent.blockTimestamp;
     const durationInYears = Number((durationInSeconds / (365 * 24 * 60 * 60)).toFixed(8));
 
     // Calculer le rendement sur la période
-    const periodReturn = Number(((latestPps - interpolatedPps) / interpolatedPps).toFixed(6));
+    const periodReturn = Number(((latestPps - closestEvent.ppsFormatted) / closestEvent.ppsFormatted).toFixed(6));
 
     // Calculer l'APR en extrapolant sur une année
     const calculatedApr = Number(((periodReturn / durationInYears) * 100).toFixed(2));
@@ -134,34 +114,17 @@ export const GET: RequestHandler = async ({ url, params }) => {
           pps: latestPps,
           transactionHash: sortedEvents[0]?.transactionHash
         },
-        interpolatedEvent: {
-          timestamp: new Date(targetTimestamp * 1000).toISOString(),
-          pps: interpolatedPps,
-          isInterpolated: true
-        },
-        referenceEvents: {
-          before: {
-            timestamp: new Date(beforeEvent.blockTimestamp * 1000).toISOString(),
-            pps: beforePps,
-            transactionHash: beforeEvent.transactionHash
-          },
-          after: {
-            timestamp: new Date(afterEvent.blockTimestamp * 1000).toISOString(),
-            pps: afterPps,
-            transactionHash: afterEvent.transactionHash
-          }
+        referenceEvent: {
+          timestamp: new Date(closestEvent.blockTimestamp * 1000).toISOString(),
+          pps: Number(closestEvent.ppsFormatted.toFixed(6)),
+          transactionHash: closestEvent.transactionHash,
+          daysFromLatest: Number((minDaysDiff).toFixed(2))
         },
         formula: {
-          periodReturn: `(${latestPps} - ${interpolatedPps}) / ${interpolatedPps} = ${(periodReturn * 100).toFixed(6)}%`,
+          periodReturn: `(${latestPps} - ${Number(closestEvent.ppsFormatted.toFixed(6))}) / ${Number(closestEvent.ppsFormatted.toFixed(6))} = ${(periodReturn * 100).toFixed(6)}%`,
           durationInSeconds: durationInSeconds,
           durationInYears: durationInYears,
-          interpolation: {
-            factor: interpolationFactor.toFixed(4),
-            beforePps: beforePps,
-            afterPps: afterPps,
-            formula: `${beforePps} + (${afterPps} - ${beforePps}) * ${interpolationFactor.toFixed(4)} = ${interpolatedPps}`
-          },
-          aprFormula: `(${(periodReturn * 100).toFixed(6)}% / ${durationInYears} years) * 100 = ${calculatedApr}% (extrapolé sur 1 an, basé sur exactement 7 jours)`
+          aprFormula: `(${(periodReturn * 100).toFixed(6)}% / ${durationInYears} years) * 100 = ${calculatedApr}% (extrapolé sur 1 an)`
         }
       }
     });
