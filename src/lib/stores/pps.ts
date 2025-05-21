@@ -1,4 +1,5 @@
 import { writable } from 'svelte/store';
+import { browser } from '$app/environment';
 
 export interface PpsData {
   pps: number;
@@ -78,6 +79,10 @@ function createPpsStore() {
       }));
     },
     getPpsHistory: async (vaultId: string, timeframe: 'all' | '3m' | '1m' | '1w'): Promise<PpsHistoryResponse> => {
+      if (!browser) {
+        return { pps: [] };
+      }
+
       try {
         const response = await fetch(`/api/vaults/${vaultId}/metrics/pps?time=${timeframe}`);
         if (!response.ok) {
@@ -109,6 +114,9 @@ function createPpsStore() {
       }
     },
     getLatestPps: async (vaultId: string): Promise<PpsHistoryData | null> => {
+      if (!browser) {
+        return null;
+      }
       const history = await pps.getPpsHistory(vaultId, 'all');
       if (history.pps.length === 0) return null;
       return history.pps[history.pps.length - 1];

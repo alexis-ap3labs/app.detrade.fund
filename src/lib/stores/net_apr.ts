@@ -1,5 +1,6 @@
 import { writable } from 'svelte/store';
 import type { Writable } from 'svelte/store';
+import { browser } from '$app/environment';
 
 interface NetAprData {
   apr: number | null;
@@ -20,6 +21,7 @@ interface NetAprStore extends Writable<{
   setLoading: (vaultId: string, loading: boolean) => void;
   setError: (vaultId: string, error: string | null) => void;
   reset: () => void;
+  fetchNetApr: (vaultId: string) => Promise<void>;
 }
 
 function createNetAprStore(): NetAprStore {
@@ -63,6 +65,45 @@ function createNetAprStore(): NetAprStore {
           loading: false
         }
       }));
+    },
+    fetchNetApr: async (vaultId: string) => {
+      if (!browser) return;
+      
+      update(store => ({
+        ...store,
+        [vaultId]: {
+          ...store[vaultId],
+          loading: true,
+          error: null
+        }
+      }));
+
+      try {
+        const response = await fetch(`/api/vaults/${vaultId}/metrics/net_apr`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch net APR');
+        }
+        const data = await response.json();
+        update(store => ({
+          ...store,
+          [vaultId]: {
+            ...store[vaultId],
+            data,
+            loading: false,
+            error: null
+          }
+        }));
+      } catch (error) {
+        console.error('Error fetching net APR:', error);
+        update(store => ({
+          ...store,
+          [vaultId]: {
+            ...store[vaultId],
+            loading: false,
+            error: error instanceof Error ? error.message : 'Failed to fetch net APR'
+          }
+        }));
+      }
     },
     reset: () => set({})
   };

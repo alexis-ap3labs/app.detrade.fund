@@ -1,4 +1,5 @@
 import { writable } from 'svelte/store';
+import { ALL_VAULTS } from '../vaults';
 
 export type TvlData = {
   tvl: string;
@@ -56,6 +57,13 @@ function createTvlStore() {
       return result;
     },
     getTvlHistory: async (vaultId: string, timeFilter: 'all' | '3m' | '1m' | '1w' = '3m'): Promise<TvlHistoryData[]> => {
+      // Vérifier si le vault est actif
+      const vault = ALL_VAULTS.find(v => v.id === vaultId);
+      if (!vault || !vault.isActive) {
+        console.log(`Skipping TVL history fetch for inactive vault: ${vaultId}`);
+        return [];
+      }
+
       console.log('Fetching TVL history for vault:', vaultId, 'with time filter:', timeFilter);
       try {
         const url = `/api/vaults/${vaultId}/metrics/tvl?time=${timeFilter}`;
@@ -85,6 +93,13 @@ function createTvlStore() {
       }
     },
     refreshTvl: async (vaultId: string): Promise<void> => {
+      // Vérifier si le vault est actif
+      const vault = ALL_VAULTS.find(v => v.id === vaultId);
+      if (!vault || !vault.isActive) {
+        console.log(`Skipping TVL refresh for inactive vault: ${vaultId}`);
+        return;
+      }
+
       console.log('Refreshing TVL for vault:', vaultId);
       try {
         const response = await fetch(`/api/vaults/${vaultId}/metrics/tvl?latest=true`);

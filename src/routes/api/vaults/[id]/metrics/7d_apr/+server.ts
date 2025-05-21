@@ -8,10 +8,13 @@ export const GET: RequestHandler = async ({ url, params }) => {
   try {
     const { id } = params;
     
-    // Vérifier si le vault existe
+    // Vérifier si le vault existe et est actif
     const vault = ALL_VAULTS.find(v => v.id === id);
     if (!vault) {
       return json({ error: 'Vault not found' }, { status: 404 });
+    }
+    if (!vault.isActive) {
+      return json({ error: 'Vault is not active' }, { status: 400 });
     }
 
     // Vérifier l'URI MongoDB

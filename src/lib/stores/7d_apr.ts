@@ -1,4 +1,5 @@
 import { writable } from 'svelte/store';
+import { browser } from '$app/environment';
 
 type AprData = {
   data: {
@@ -47,6 +48,47 @@ function createSevenDayAprStore() {
           loading: true
         }
       }));
+    },
+    fetchSevenDayApr: async (vaultId: string) => {
+      if (!browser) return;
+
+      update(store => ({
+        ...store,
+        [vaultId]: {
+          data: null,
+          error: null,
+          loading: true
+        }
+      }));
+
+      try {
+        const response = await fetch(`/api/vaults/${vaultId}/metrics/7d_apr`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch 7-day APR');
+        }
+        const data = await response.json();
+        update(store => ({
+          ...store,
+          [vaultId]: {
+            data: {
+              apr: data.apr,
+              timestamp: new Date().toISOString()
+            },
+            error: null,
+            loading: false
+          }
+        }));
+      } catch (error) {
+        console.error('Error fetching 7-day APR:', error);
+        update(store => ({
+          ...store,
+          [vaultId]: {
+            data: null,
+            error: error instanceof Error ? error.message : 'Failed to fetch 7-day APR',
+            loading: false
+          }
+        }));
+      }
     },
     reset: () => set({})
   };

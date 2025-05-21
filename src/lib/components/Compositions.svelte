@@ -19,13 +19,22 @@
       compositionStore.setLoading(true);
       const response = await fetch(`/api/oracle/compositions/${vaultId}`);
       if (!response.ok) {
-        throw new Error('Failed to fetch composition data');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch composition data');
       }
       const data = await response.json();
+      
+      // Vérifier que les données sont valides
+      if (!data.compositions || !data.compositions.allocation) {
+        throw new Error('Invalid composition data format');
+      }
+      
       compositionStore.setComposition(vaultId, data.compositions);
     } catch (error) {
       console.error('Error fetching composition data:', error);
       compositionStore.setError(error instanceof Error ? error.message : 'Unknown error');
+      // Réinitialiser les données en cas d'erreur
+      compositionStore.setComposition(vaultId, undefined);
     } finally {
       compositionStore.setLoading(false);
     }
@@ -58,9 +67,10 @@
     return date.toLocaleString();
   }
 
-  // Générer les données triées
+  // Générer les données triées avec validation
   $: sortedAlloc = $compositionStore.compositions[vaultId]?.allocation
-    ? Object.entries($compositionStore.compositions[vaultId].allocation)
+    ? Object.entries($compositionStore.compositions[vaultId]?.allocation || {})
+        .filter(([, data]) => !isNaN(data.percentage) && data.percentage >= 0)
         .sort(([, a], [, b]) => b.percentage - a.percentage)
     : [];
 
@@ -102,7 +112,11 @@
             if (!alloc) return '';
             // If value is available, show it with the underlying token symbol
             if (alloc.value_usdc !== undefined) {
-              // Format with 2 decimals and token symbol
+              // Si c'est une valeur en WETH, l'afficher directement
+              if (alloc.value_usdc.includes('WETH')) {
+                return alloc.value_usdc;
+              }
+              // Sinon, formater en USDC
               return `${parseFloat(alloc.value_usdc).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} USDC`;
             }
             return '';
@@ -138,12 +152,12 @@
           <div class="info-row">
             <span class="info-label">ID:</span>
             <a 
-              href="https://oracle.detrade.fund/detrade-core-usdc/oracle/{$compositionStore.compositions[vaultId]._id}" 
+              href="https://oracle.detrade.fund/detrade-core-usdc/oracle/{$compositionStore.compositions[vaultId]?._id}" 
               target="_blank" 
               rel="noopener noreferrer"
               class="info-value link"
             >
-              {$compositionStore.compositions[vaultId]._id}
+              {$compositionStore.compositions[vaultId]?._id}
               <svg class="external-link-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M15 3h6v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -153,7 +167,7 @@
           </div>
           <div class="info-row">
             <span class="info-label">Last update:</span>
-            <span class="info-value">{formatLocalTime($compositionStore.compositions[vaultId].timestamp)}</span>
+            <span class="info-value">{formatLocalTime($compositionStore.compositions[vaultId]?.timestamp || '')}</span>
           </div>
         </div>
       {/if}

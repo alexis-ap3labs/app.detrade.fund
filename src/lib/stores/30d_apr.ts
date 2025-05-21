@@ -1,4 +1,5 @@
 import { writable } from 'svelte/store';
+import { browser } from '$app/environment';
 import type { Writable } from 'svelte/store';
 
 interface ThirtyDayAprData {
@@ -17,6 +18,7 @@ interface ThirtyDayAprStore extends Writable<{
   setLoading: (vaultId: string, loading: boolean) => void;
   setError: (vaultId: string, error: string | null) => void;
   reset: () => void;
+  fetchThirtyDayApr: (vaultId: string) => Promise<void>;
 }
 
 function createThirtyDayAprStore(): ThirtyDayAprStore {
@@ -60,6 +62,47 @@ function createThirtyDayAprStore(): ThirtyDayAprStore {
           loading: false
         }
       }));
+    },
+    fetchThirtyDayApr: async (vaultId: string) => {
+      if (!browser) return;
+
+      update(store => ({
+        ...store,
+        [vaultId]: {
+          data: null,
+          error: null,
+          loading: true
+        }
+      }));
+
+      try {
+        const response = await fetch(`/api/vaults/${vaultId}/metrics/30d_apr`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch 30-day APR');
+        }
+        const data = await response.json();
+        update(store => ({
+          ...store,
+          [vaultId]: {
+            data: {
+              apr: data.apr,
+              timestamp: new Date().toISOString()
+            },
+            error: null,
+            loading: false
+          }
+        }));
+      } catch (error) {
+        console.error('Error fetching 30-day APR:', error);
+        update(store => ({
+          ...store,
+          [vaultId]: {
+            data: null,
+            error: error instanceof Error ? error.message : 'Failed to fetch 30-day APR',
+            loading: false
+          }
+        }));
+      }
     },
     reset: () => set({})
   };

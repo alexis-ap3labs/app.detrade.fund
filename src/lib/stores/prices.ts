@@ -157,33 +157,67 @@ export const prices = {
   
   // Récupérer le prix d'un token (utilise le cache si valide)
   async getPrice(token: string): Promise<number> {
-    const state = get(pricesState);
-    const currentPrice = state[token];
+    console.log('[prices] Getting price for', token);
     
-    // Toujours retourner le prix en cache s'il existe
-    if (currentPrice) {
-      return currentPrice.price;
+    // Vérifier si le prix est déjà en cache et valide
+    const cachedPrice = get(pricesState)[token];
+    if (cachedPrice && isPriceValid(cachedPrice.lastUpdated)) {
+      console.log('[prices] Using cached price for', token, ':', cachedPrice.price);
+      return cachedPrice.price;
     }
-    
-    // Si pas de prix en cache du tout, on fait une requête
+
     try {
-      const { price } = await fetchPrice(token);
-      pricesState.update(state => ({
-        ...state,
-        [token]: {
-          price,
-          lastUpdated: Date.now(),
-          source: 'coingecko'
-        }
-      }));
-      return price;
+      // Mettre à jour le prix
+      await updateTokenPrice(token);
+      
+      // Vérifier que le prix a bien été mis à jour
+      const updatedPrice = get(pricesState)[token];
+      if (!updatedPrice) {
+        throw new Error(`Failed to update price for ${token}`);
+      }
+      
+      console.log('[prices] Price updated for', token, ':', updatedPrice.price);
+      return updatedPrice.price;
     } catch (error) {
+      console.error('[prices] Error getting price for', token, ':', error);
+      // Si on a un prix en cache même expiré, on le retourne
+      if (cachedPrice) {
+        console.log('[prices] Using expired cached price for', token, ':', cachedPrice.price);
+        return cachedPrice.price;
+      }
       throw error;
     }
   },
   
   // Initialiser le store avec une liste de tokens à suivre
   initialize(tokens: string[]) {
+    console.log('[prices] Initializing store with tokens:', tokens);
+    
+    // S'assurer que WETH est toujours présent pour le vault ETH
+    if (!tokens.includes('WETH')) {
+      tokens.push('WETH');
+      console.log('[prices] Added WETH to token list');
+    }
+    
+    // Démarrer le rafraîchissement automatique
     startBackgroundRefresh(tokens);
+    
+    // Faire un premier chargement immédiat des prix
+    tokens.forEach(token => {
+      console.log('[prices] Fetching initial price for', token);
+      this.getPrice(token).catch(error => {
+        console.error('[prices] Error fetching initial price for', token, ':', error);
+      });
+    });
+
+    // Vérifier spécifiquement le prix WETH
+    if (tokens.includes('WETH')) {
+      console.log('[prices] Ensuring WETH price is fetched');
+      this.getPrice('WETH').then(price => {
+        console.log('[prices] WETH price fetched successfully:', price);
+      }).catch(error => {
+        console.error('[prices] Error fetching WETH price:', error);
+      });
+    }
   }
 }; 

@@ -31,6 +31,38 @@
   let retryCount = 0;
   const MAX_RETRIES = 3;
   let mounted = false;
+  let lastTvlUpdate = 0;
+  const TVL_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+  // Calculer la valeur USD en multipliant par le prix de l'underlying token
+  $: if (browser && mounted && vault?.underlyingToken) {
+    console.log('[VaultHeader] Calculating TVL USD:', { 
+      tvlInAssets, 
+      underlyingToken: vault.underlyingToken,
+      priceData: $prices[vault.underlyingToken]
+    });
+    
+    if (vault.id === 'detrade-core-eth') {
+      // Pour le vault ETH, on utilise le prix du WETH
+      const wethPrice = $prices['WETH']?.price;
+      if (wethPrice) {
+        tvlUsd = parseFloat(tvlInAssets) * wethPrice;
+        console.log('[VaultHeader] TVL USD calculated with WETH price:', { tvlInAssets, wethPrice, tvlUsd });
+      } else {
+        console.warn('[VaultHeader] WETH price not found in store');
+        tvlUsd = 0;
+      }
+    } else {
+      const priceData = $prices[vault.underlyingToken];
+      if (priceData?.price) {
+        tvlUsd = parseFloat(tvlInAssets) * priceData.price;
+        console.log('[VaultHeader] TVL USD calculated:', { tvlInAssets, price: priceData.price, tvlUsd });
+      } else {
+        console.warn('[VaultHeader] Price not found for', vault.underlyingToken);
+        tvlUsd = 0;
+      }
+    }
+  }
 
   $: formattedTvlUsd = tvlUsd ? new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -42,9 +74,6 @@
   $: formattedNetApr = netAprValue ? `${netAprValue.toFixed(2)}%` : '0%';
   $: formattedApr30d = apr30d ? `${apr30d.toFixed(2)}%` : '0%';
 
-  // Calculer la valeur USD en multipliant par le prix de l'underlying token
-  $: tvlUsd = parseFloat(tvlInAssets) * ($prices[vault.underlyingToken]?.price || 0);
-
   // Générer le lien explorer
   $: explorerUrl = vault && network && vault.vaultContract
     ? (network.name === 'Base'
@@ -53,7 +82,12 @@
     : null;
 
   async function loadData() {
-    if (!browser || !mounted || !vault?.id) return;
+    if (!browser || !mounted || !vault?.id) {
+      console.log('Skipping loadData:', { browser, mounted, vaultId: vault?.id });
+      return;
+    }
+    
+    console.log('Loading data for vault:', vault.id);
     
     try {
       isLoading = { tvl: true, netApr: true, apr30d: true };
@@ -63,58 +97,71 @@
       netApr.setLoading(vault.id, true);
       thirtyDayApr.setLoading(vault.id, true);
 
-      // Load all metrics in parallel
+      // Load all metrics in parallel with timeout
+      const timeout = (ms: number) => new Promise((_, reject) => 
+        setTimeout(() => reject(new Error(`Request timeout after ${ms}ms`)), ms)
+      );
+
       const [tvlResult, netAprResult, apr30dResult] = await Promise.allSettled([
-        // Load TVL
+        // Load TVL only if cache is expired
         (async () => {
           try {
-            await latestTvl.refreshLatestTvl(vault.id);
-            const latestTvlData = latestTvl.getLatestTvl(vault.id);
-            if (latestTvlData) {
-              tvlInAssets = latestTvlData.tvl;
+            const now = Date.now();
+            if (now - lastTvlUpdate < TVL_CACHE_DURATION && tvlInAssets !== '0') {
+              console.log('Using cached TVL data');
+              return true;
+            }
+
+            const response = await Promise.race([
+              fetch(`/api/vaults/${vault.id}/metrics/tvl?latest=true`),
+              timeout(10000) // 10 second timeout
+            ]) as Response;
+            
+            if (!response || !response.ok) {
+              throw new Error('Failed to fetch TVL data');
+            }
+
+            const data = await response.json();
+            console.log('TVL data received:', data);
+            if (data.latestTvl) {
+              tvlInAssets = data.latestTvl.totalAssets;
+              lastTvlUpdate = now;
+              isLoading.tvl = false;
             }
             return true;
           } catch (error) {
+            console.error('Error loading TVL:', error);
             errors.tvl = error instanceof Error ? error : new Error(String(error));
             return false;
           }
         })(),
 
-        // Load Net APR
+        // Load Net APR using store method
         (async () => {
           try {
-            const response = await fetch(`/api/vaults/${vault.id}/metrics/net_apr`);
-            const data = await response.json();
-            if (data.apr !== undefined) {
-              netApr.setApr(vault.id, {
-                apr: data.apr,
-                startDate: data.startDate,
-                endDate: data.endDate,
-                totalReturn: data.totalReturn,
-                timestamp: new Date().toISOString()
-              });
-            }
+            await Promise.race([
+              netApr.fetchNetApr(vault.id),
+              timeout(10000) // 10 second timeout
+            ]);
             return true;
           } catch (error) {
+            console.error('Error loading Net APR:', error);
             netApr.setError(vault.id, error instanceof Error ? error.message : String(error));
             return false;
           }
         })(),
 
-        // Load 30D APR
+        // Load 30D APR using store method
         (async () => {
           try {
-            const response = await fetch(`/api/vaults/${vault.id}/metrics/30d_apr`);
-            const data = await response.json();
-            if (data.apr !== undefined) {
-              thirtyDayApr.setApr(vault.id, {
-                apr: data.apr,
-                timestamp: new Date().toISOString()
-              });
-            }
+            await Promise.race([
+              thirtyDayApr.fetchThirtyDayApr(vault.id),
+              timeout(10000) // 10 second timeout
+            ]);
             return true;
           } catch (error) {
-            errors.apr30d = error instanceof Error ? error : new Error(String(error));
+            console.error('Error loading 30D APR:', error);
+            thirtyDayApr.setError(vault.id, error instanceof Error ? error.message : String(error));
             return false;
           }
         })()
@@ -127,44 +174,37 @@
         apr30d: apr30dResult.status === 'rejected'
       };
 
+      console.log('Loading states updated:', isLoading);
+      console.log('Current values:', { netAprValue, apr30d, tvlInAssets });
+
       retryCount = 0;
     } catch (error) {
       console.error('Error loading vault data:', error);
       if (retryCount < MAX_RETRIES) {
         retryCount++;
-        setTimeout(loadData, 1000 * retryCount); // Exponential backoff
+        const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Exponential backoff with max 10s
+        console.log(`Retrying in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+        setTimeout(loadData, delay);
       }
     }
   }
 
   onMount(() => {
+    console.log('Component mounted, vault:', vault);
     mounted = true;
     if (vault?.id) {
       netApr.setLoading(vault.id, true);
       netApr.setError(vault.id, null);
+      thirtyDayApr.setLoading(vault.id, true);
+      thirtyDayApr.setError(vault.id, null);
+      loadData();
     }
-    loadData();
   });
-
-  // Mettre à jour tvlInAssets quand le store change, mais seulement côté client
-  $: if (browser && mounted && vault?.id) {
-    const latestTvlData = latestTvl.getLatestTvl(vault.id);
-    if (latestTvlData) {
-      tvlInAssets = latestTvlData.tvl;
-      isLoading.tvl = false;
-    }
-  }
-
-  // Recharger les données quand le vault change, mais seulement côté client
-  $: if (browser && mounted && vault?.id) {
-    netApr.setLoading(vault.id, true);
-    netApr.setError(vault.id, null);
-    loadData();
-  }
 
   // Subscribe to netApr store changes
   $: if (browser && mounted && vault?.id) {
     const netAprState = $netApr[vault.id];
+    console.log('Net APR store updated:', netAprState);
     if (netAprState) {
       isLoading.netApr = netAprState.loading;
       if (netAprState.error) {
@@ -172,8 +212,31 @@
       }
       if (netAprState.data) {
         netAprValue = netAprState.data.apr ?? undefined;
+        console.log('Net APR value updated:', netAprValue);
       }
     }
+  }
+
+  // Subscribe to thirtyDayApr store changes
+  $: if (browser && mounted && vault?.id) {
+    const thirtyDayAprState = $thirtyDayApr[vault.id];
+    console.log('30D APR store updated:', thirtyDayAprState);
+    if (thirtyDayAprState) {
+      isLoading.apr30d = thirtyDayAprState.loading;
+      if (thirtyDayAprState.error) {
+        errors.apr30d = new Error(thirtyDayAprState.error);
+      }
+      if (thirtyDayAprState.data) {
+        apr30d = thirtyDayAprState.data.apr ?? undefined;
+        console.log('30D APR value updated:', apr30d);
+      }
+    }
+  }
+
+  // Recharger les données quand le vault change, mais seulement côté client
+  $: if (browser && mounted && vault?.id) {
+    console.log('Vault changed, reloading data');
+    loadData();
   }
 </script>
 

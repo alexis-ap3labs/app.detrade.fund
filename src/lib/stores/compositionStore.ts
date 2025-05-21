@@ -14,7 +14,7 @@ export interface Composition {
 }
 
 export interface CompositionStore {
-  compositions: Record<string, Composition>;
+  compositions: Record<string, Composition | undefined>;
   loading: boolean;
   error: string | null;
 }
@@ -28,7 +28,7 @@ function createCompositionStore() {
 
   return {
     subscribe,
-    setComposition: (vaultId: string, composition: Composition) => {
+    setComposition: (vaultId: string, composition: Composition | undefined) => {
       update(store => ({
         ...store,
         compositions: {

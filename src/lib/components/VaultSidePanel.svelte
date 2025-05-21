@@ -408,21 +408,24 @@
   $: if (vault?.coingeckoId) {
     if (unsubscribe) unsubscribe();
     unsubscribe = prices.subscribe(state => {
-      console.log('PRICES STATE:', state); // Ajout du log debug
+      console.log('[VaultSidePanel] PRICES STATE:', state); // Log plus détaillé
       if (vaultId === 'detrade-core-eth') {
         // Pour le vault ETH, on utilise le prix du WETH
         if (state['WETH']) {
           underlyingPrice = state['WETH'].price;
-          console.log('[prices.subscribe] WETH price updated:', underlyingPrice);
+          console.log('[VaultSidePanel] WETH price updated:', underlyingPrice);
         } else {
-          console.warn('[prices.subscribe] WETH price not found in store');
+          console.warn('[VaultSidePanel] WETH price not found in store, trying to fetch it');
+          prices.getPrice('WETH').catch(error => {
+            console.error('[VaultSidePanel] Error fetching WETH price:', error);
+          });
           underlyingPrice = 0;
         }
       } else if (vault?.underlyingToken && state[vault.underlyingToken]) {
         underlyingPrice = state[vault.underlyingToken].price;
-        console.log('[prices.subscribe] Price updated:', underlyingPrice);
+        console.log('[VaultSidePanel] Price updated for', vault.underlyingToken, ':', underlyingPrice);
       } else {
-        console.warn('[prices.subscribe] Price not found for', vault?.underlyingToken, 'in store prices.');
+        console.warn('[VaultSidePanel] Price not found for', vault?.underlyingToken, 'in store prices.');
         underlyingPrice = 0;
       }
     });
@@ -431,6 +434,7 @@
   // Appel automatique de la conversion à chaque changement de prix ou d'input
   $: {
     if (depositAmount || underlyingPrice) {
+      console.log('[VaultSidePanel] Updating USD value:', { depositAmount, underlyingPrice });
       updateUsdValue();
     }
   }
@@ -1274,9 +1278,15 @@
 
     // Initialiser le prix du token sous-jacent
     if (vaultId === 'detrade-core-eth') {
-      prices.getPrice('WETH');
+      console.log('[VaultSidePanel] Initializing WETH price');
+      prices.getPrice('WETH').catch(error => {
+        console.error('[VaultSidePanel] Error initializing WETH price:', error);
+      });
     } else if (underlyingToken) {
-      prices.getPrice(underlyingToken);
+      console.log('[VaultSidePanel] Initializing price for', underlyingToken);
+      prices.getPrice(underlyingToken).catch(error => {
+        console.error('[VaultSidePanel] Error initializing price for', underlyingToken, ':', error);
+      });
     }
   });
 

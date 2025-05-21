@@ -1,4 +1,5 @@
 import { writable } from 'svelte/store';
+import { ALL_VAULTS } from '../vaults';
 
 export type LatestTvlData = {
   tvl: string;
@@ -57,6 +58,13 @@ function createLatestTvlStore() {
       return result;
     },
     refreshLatestTvl: async (vaultId: string): Promise<void> => {
+      // Vérifier si le vault est actif
+      const vault = ALL_VAULTS.find(v => v.id === vaultId);
+      if (!vault || !vault.isActive) {
+        console.log(`Skipping TVL refresh for inactive vault: ${vaultId}`);
+        return;
+      }
+
       console.log('Refreshing latest TVL for vault:', vaultId);
       
       // Essayer d'abord la nouvelle API TVL
@@ -105,9 +113,20 @@ function createLatestTvlStore() {
     refreshAllLatestTvls: async (vaultIds: string[]): Promise<void> => {
       console.log('Starting refresh for latest TVL of vaults:', vaultIds);
       
+      // Filtrer les vaults actifs
+      const activeVaultIds = vaultIds.filter(id => {
+        const vault = ALL_VAULTS.find(v => v.id === id);
+        return vault && vault.isActive;
+      });
+
+      if (activeVaultIds.length === 0) {
+        console.log('No active vaults to refresh');
+        return;
+      }
+      
       try {
         const results = await Promise.all(
-          vaultIds.map(async (vaultId) => {
+          activeVaultIds.map(async (vaultId) => {
             try {
               // Essayer d'abord la nouvelle API TVL
               const tvlResponse = await fetch(`/api/vaults/${vaultId}/metrics/tvl?latest=true`);

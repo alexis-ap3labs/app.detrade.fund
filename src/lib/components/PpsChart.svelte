@@ -17,70 +17,51 @@
   let loading = true;
   let isDropdownOpen = false;
   let mounted = false;
+  let latestPpsValue = '0';
+  let latestPpsTimestamp = '';
+
+  onMount(() => {
+    console.log('Component mounted');
+    mounted = true;
+    console.log('Mounted state set to true');
+    console.log('Initial vaultId:', vaultId);
+    console.log('Initial timeframe:', timeframe);
+    if (browser) {
+      fetchLatestPps();
+      fetchData();
+    }
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  });
 
   // Get ticker dynamically from vaults
   $: ticker = ALL_VAULTS.find(vault => vault.id === vaultId)?.ticker || '';
 
-  async function fetchLatestPps() {
-    if (!browser || !mounted) {
-      console.log('fetchLatestPps: Not in browser or not mounted');
-      return;
-    }
-    
-    console.log('fetchLatestPps: Starting fetch for vaultId:', vaultId);
-    try {
-      const response = await fetch(`/api/vaults/${vaultId}/metrics/pps?latest=true`);
-      console.log('fetchLatestPps: Response status:', response.status);
-      if (!response.ok) {
-        console.error('Error fetching latest PPS:', response.status);
-        return;
-      }
-      const data = await response.json();
-      console.log('fetchLatestPps: Received data:', data);
-      if (data.latestPps) {
-        latestPps.setLatestPps(vaultId, {
-          pps: data.latestPps.pps,
-          timestamp: data.latestPps.timestamp
-        });
-      } else {
-        latestPps.setError(vaultId, 'No latest PPS data');
-      }
-    } catch (error) {
-      console.error('Error fetching latest PPS:', error);
-      latestPps.setError(vaultId, 'Failed to fetch latest PPS');
+  // Déclenchement du fetch quand le timeframe ou le vaultId change
+  $: if (browser && mounted && (timeframe || vaultId)) {
+    console.log('Reactive statement triggered - Timeframe or vaultId changed');
+    console.log('Current timeframe:', timeframe);
+    console.log('Current vaultId:', vaultId);
+    if (browser) {
+      fetchData();
     }
   }
 
-  $: displayPps = (
-    $latestPps[vaultId] && $latestPps[vaultId].data && $latestPps[vaultId].data.pps && !isNaN(Number($latestPps[vaultId].data.pps))
-      ? Number($latestPps[vaultId].data.pps).toLocaleString(undefined, {
-          minimumFractionDigits: 6,
-          maximumFractionDigits: 6,
-          useGrouping: false
-        })
-      : '—'
-  );
-
-  const timeframes: { label: string; value: 'all' | '3m' | '1m' }[] = [
-    { label: 'All time', value: 'all' },
-    { label: '3 months', value: '3m' },
-    { label: '1 month', value: '1m' }
-  ];
-
-  function handleTimeframeSelect(value: 'all' | '3m' | '1m') {
-    timeframe = value;
-    isDropdownOpen = false;
+  // Mise à jour du graphique quand le timeframe change
+  $: if (timeframe && browser && mounted) {
+    console.log('Timeframe changed to:', timeframe);
+    if (browser) {
+      fetchData();
+    }
   }
 
-  function toggleDropdown() {
-    isDropdownOpen = !isDropdownOpen;
-  }
-
-  // Fermer le dropdown si on clique en dehors
-  function handleClickOutside(event: MouseEvent) {
-    const target = event.target as HTMLElement;
-    if (!target.closest('.timeframe-selector')) {
-      isDropdownOpen = false;
+  // Only fetch latest PPS when vaultId changes, but only on the client side
+  $: if (browser && mounted && vaultId) {
+    console.log('VaultId changed, fetching latest PPS...');
+    if (browser) {
+      fetchLatestPps();
     }
   }
 
@@ -102,7 +83,6 @@
         return;
       }
 
-      // Mise à jour des données avec le nouveau timeframe
       data = response.pps;
       console.log('fetchData: Data used for chart:', data);
       console.log('fetchData: Number of data points:', data.length);
@@ -135,19 +115,61 @@
     }
   }
 
-  onMount(() => {
-    console.log('Component mounted');
-    mounted = true;
-    console.log('Mounted state set to true');
-    console.log('Initial vaultId:', vaultId);
-    console.log('Initial timeframe:', timeframe);
-    fetchLatestPps();
-    fetchData();
-    document.addEventListener('click', handleClickOutside);
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
-  });
+  async function fetchLatestPps() {
+    if (!browser || !mounted) {
+      console.log('fetchLatestPps: Not in browser or not mounted');
+      return;
+    }
+    
+    console.log('fetchLatestPps: Starting fetch for vaultId:', vaultId);
+    try {
+      const response = await fetch(`/api/vaults/${vaultId}/metrics/pps?latest=true`);
+      console.log('fetchLatestPps: Response status:', response.status);
+      if (!response.ok) {
+        console.error('Error fetching latest PPS:', response.status);
+        return;
+      }
+      const data = await response.json();
+      console.log('fetchLatestPps: Received data:', data);
+      if (data?.latestPps?.pps && data?.latestPps?.timestamp) {
+        latestPpsValue = data.latestPps.pps;
+        latestPpsTimestamp = data.latestPps.timestamp;
+      }
+    } catch (error) {
+      console.error('Error fetching latest PPS:', error);
+    }
+  }
+
+  $: displayPps = latestPpsValue && !isNaN(Number(latestPpsValue))
+    ? Number(latestPpsValue).toLocaleString(undefined, {
+        minimumFractionDigits: 6,
+        maximumFractionDigits: 6,
+        useGrouping: false
+      })
+    : '—';
+
+  const timeframes: { label: string; value: 'all' | '3m' | '1m' }[] = [
+    { label: 'All time', value: 'all' },
+    { label: '3 months', value: '3m' },
+    { label: '1 month', value: '1m' }
+  ];
+
+  function handleTimeframeSelect(value: 'all' | '3m' | '1m') {
+    timeframe = value;
+    isDropdownOpen = false;
+  }
+
+  function toggleDropdown() {
+    isDropdownOpen = !isDropdownOpen;
+  }
+
+  // Fermer le dropdown si on clique en dehors
+  function handleClickOutside(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.timeframe-selector')) {
+      isDropdownOpen = false;
+    }
+  }
 
   // Mise à jour du graphique quand les données changent
   $: if (data && data.length > 0) {
@@ -185,26 +207,6 @@
         }
       ]
     };
-  }
-
-  // Déclenchement du fetch quand le timeframe ou le vaultId change
-  $: if (browser && mounted) {
-    console.log('Reactive statement triggered - Timeframe or vaultId changed');
-    console.log('Current timeframe:', timeframe);
-    console.log('Current vaultId:', vaultId);
-    fetchData();
-  }
-
-  // Mise à jour du graphique quand le timeframe change
-  $: if (timeframe) {
-    console.log('Timeframe changed to:', timeframe);
-    fetchData();
-  }
-
-  // Only fetch latest PPS when vaultId changes, but only on the client side
-  $: if (browser && mounted && vaultId) {
-    console.log('VaultId changed, fetching latest PPS...');
-    fetchLatestPps();
   }
 
   // Préparer les données pour Chart.js

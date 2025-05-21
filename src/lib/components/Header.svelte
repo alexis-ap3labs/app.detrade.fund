@@ -68,10 +68,19 @@
         src="/detrade-text.webp" 
         alt="DeTrade" 
         class="logo" 
-        on:click={() => goto('/')}
+        on:click={() => {
+          console.log('[Header] Logo clicked, navigating to home');
+          goto('/');
+        }}
+        role="button"
+        tabindex="0"
       />
       {#if $page.url.pathname !== '/'}
-        <a class="nav-link desktop" on:click|preventDefault={() => goto('/')}>Vaults</a>
+        <a href="/" class="nav-link desktop" on:click={(e) => {
+          console.log('[Header] Vaults link clicked');
+          e.preventDefault();
+          goto('/');
+        }} role="button" tabindex="0">Vaults</a>
       {:else}
         <span class="nav-link desktop disabled">Portfolio</span>
       {/if}
