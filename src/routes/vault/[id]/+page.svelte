@@ -167,7 +167,7 @@
     width: 100%;
     max-width: 1800px;
     margin: 0 auto;
-    padding: 1rem clamp(0.75rem, 4.9vw, 4.9rem);
+    padding: 2.5rem clamp(0.75rem, 4.9vw, 4.9rem);
     display: flex;
     flex-direction: column;
     position: relative;

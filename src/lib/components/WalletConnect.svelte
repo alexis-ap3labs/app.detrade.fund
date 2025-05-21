@@ -1,7 +1,7 @@
 <script lang="ts">
   import { rabbykit, config } from '$lib/rabbykit';
   import { base, mainnet } from '@wagmi/core/chains';
-  import { getAccount, watchAccount, disconnect } from '@wagmi/core';
+  import { getAccount, watchAccount, disconnect, switchChain } from '@wagmi/core';
   import { onMount, onDestroy } from 'svelte';
   import { wallet } from '$lib/stores/wallet';
   import { transactions } from '$lib/stores/transactions';
@@ -116,7 +116,6 @@
           aria-label="Network"
           type="button"
           on:click={() => { if (chainId !== base.id) handleNetworkSwitch(base.id); }}
-          disabled={chainId === base.id}
         >
           {#if chainId && NETWORKS[chainId]}
             <img src={NETWORKS[chainId].icon} alt={NETWORKS[chainId].name} />
@@ -134,7 +133,7 @@
             <span>Pending</span>
           </div>
         {:else}
-          {formatAddress(address)}
+          <span>{formatAddress(address)}</span>
         {/if}
       </button>
     {:else}
@@ -164,9 +163,9 @@
 }
 .connect-btn {
   /* Dimensions et espacement */
-  padding: 0.75rem 1.25rem;
+  padding: 0.5rem 1.25rem;
   min-width: 120px;
-  width: 160px; /* Largeur fixe */
+  width: 160px;
   height: 40px;
   
   /* Style de base */
@@ -177,6 +176,8 @@
   font-size: 1rem;
   font-weight: 600;
   white-space: nowrap;
+  font-family: inherit;
+  letter-spacing: inherit;
   
   /* Centrage du texte */
   display: flex;
@@ -203,14 +204,23 @@
 .connect-btn:active {
   transform: translateY(0);
   box-shadow: 
-    0 2px 10px rgba(77, 168, 255, 0.3),
-    0 0 20px rgba(77, 168, 255, 0.4);
+    0 4px 15px rgba(77, 168, 255, 0.3),
+    0 0 25px rgba(77, 168, 255, 0.5);
 }
 
 .connect-btn:disabled {
-  opacity: 0.6;
+  background: rgba(10, 34, 58, 0.503);
+  color: #7da2c1;
   cursor: not-allowed;
-  transform: none;
+  box-shadow: none;
+  opacity: 1;
+  transition: none;
+}
+
+.connect-btn:disabled:hover {
+  background: rgba(10, 34, 58, 0.7);
+  color: #7da2c1;
+  cursor: not-allowed;
   box-shadow: none;
 }
 .wallet-address {
@@ -318,30 +328,58 @@
   width: fit-content;
 }
 .network-logo-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(77, 168, 255, 0.2) 100%);
-  border: 1px solid var(--color-accent);
-  color: var(--color-accent);
+  width: 40px;
+  height: 40px;
+  border-radius: 0.75rem;
+  background: rgba(10, 34, 58, 0.503);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: none;
+  box-shadow: 0 0 0 rgba(25, 62, 182, 0.264);
   cursor: pointer;
-  transition: box-shadow 0.18s, border 0.18s, background 0.18s, color 0.18s;
+  transition: all 0.3s ease;
   padding: 0;
   vertical-align: middle;
   margin: 0;
+  backdrop-filter: blur(10px);
+}
+.network-logo-btn:hover {
+  transform: translateY(-2px);
+  background: rgba(10, 34, 58, 0.7);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+.network-logo-btn:active {
+  transform: translateY(0);
+  background: rgba(10, 34, 58, 0.503);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+.network-logo-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 .network-logo-btn img {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   object-fit: cover;
   background: transparent;
   display: block;
   margin-bottom: 1px;
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.2));
+}
+.network-logo-btn:hover img {
+  filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.3));
+}
+.network-logo-btn svg {
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.2));
+}
+.network-logo-btn:hover svg {
+  filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.3));
 }
 .network-logo-dropdown {
   position: absolute;
@@ -436,9 +474,52 @@
 }
 /* Accent style uniquement quand connecté */
 .connect-btn.accent {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(77, 168, 255, 0.2) 100%);
-  color: var(--color-accent);
-  border: 1px solid var(--color-accent);
+  background: rgba(10, 34, 58, 0.503);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 0.75rem;
+  box-shadow: 0 0 0 rgba(25, 62, 182, 0.264);
+  position: relative;
+  overflow: hidden;
+}
+
+.connect-btn.accent::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(77, 168, 255, 0.1) 0%, rgba(255, 255, 255, 0.1) 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.connect-btn.accent:hover::before {
+  opacity: 1;
+}
+
+.connect-btn.accent span {
+  background: linear-gradient(135deg, #ffffff 0%, #4DA8FF 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 0 20px rgba(77, 168, 255, 0.3);
+  position: relative;
+  z-index: 1;
+}
+
+.connect-btn.accent:hover {
+  background: rgba(10, 34, 58, 0.7);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 
+    0 4px 20px rgba(0, 0, 0, 0.1),
+    0 0 20px rgba(77, 168, 255, 0.2);
+}
+
+.connect-btn.accent:active {
+  background: rgba(10, 34, 58, 0.503);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
 
 /* Styles pour l'indicateur de transaction en cours */
@@ -448,16 +529,21 @@
   justify-content: center;
   gap: 0.5rem;
   width: 100%;
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 600;
+  font-family: inherit;
+  letter-spacing: inherit;
 }
 
 .spinner {
   width: 16px;
   height: 16px;
-  border: 2px solid rgba(77, 168, 255, 0.3);
-  border-top-color: #4DA8FF;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #ffffff;
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  flex-shrink: 0; /* Empêche le spinner de rétrécir */
+  flex-shrink: 0;
 }
 
 @keyframes spin {
@@ -468,7 +554,7 @@
 
 /* Ajuster le style du bouton quand il y a une transaction en cours */
 .connect-btn.connected.accent .pending-indicator {
-  color: #4DA8FF;
+  color: rgba(10, 34, 58, 0.503);
   font-size: 0.95rem;
   font-weight: 500;
 }
@@ -477,9 +563,9 @@
 @media (max-width: 640px) {
   .connect-btn {
     font-size: 1rem;
-    padding: 0.875rem 1.75rem;
-    min-width: 160px;
-    width: 180px; /* Largeur fixe plus grande sur mobile */
+    padding: 0.5rem 1.25rem;
+    min-width: 140px;
+    width: 160px;
   }
 }
 </style> 

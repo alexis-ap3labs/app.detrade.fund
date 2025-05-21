@@ -17,6 +17,30 @@ export type TvlState = {
 // Durée de validité du cache en millisecondes (5 minutes)
 const CACHE_DURATION = 5 * 60 * 1000;
 
+interface TVLStore {
+  value: string;
+  isLoading: boolean;
+  lastUpdated: number | null;
+}
+
+function createTVLStore() {
+  const { subscribe, set, update } = writable<TVLStore>({
+    value: "0",
+    isLoading: true,
+    lastUpdated: null
+  });
+
+  return {
+    subscribe,
+    setValue: (value: string) => update(store => ({ ...store, value })),
+    setLoading: (isLoading: boolean) => update(store => ({ ...store, isLoading })),
+    setLastUpdated: (timestamp: number) => update(store => ({ ...store, lastUpdated: timestamp })),
+    reset: () => set({ value: "0", isLoading: true, lastUpdated: null })
+  };
+}
+
+export const tvlStore = createTVLStore();
+
 function createTvlStore() {
   const { subscribe, set, update } = writable<TvlState>({});
 

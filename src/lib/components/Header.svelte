@@ -7,20 +7,18 @@
     import { onDestroy, onMount } from 'svelte';
     import NumberRoll from './NumberRoll.svelte';
     import { prices } from '$lib/stores/prices';
+    import { fly } from 'svelte/transition';
+    import { quintOut } from 'svelte/easing';
     
     let isHeaderVisible = true;
     let lastScrollY = 0;
     let errorTimeout: NodeJS.Timeout;
-    let tvlValue: string | number = "0";
-    let isTvlLoading = true;
-    let tvlUsdValue: number = 0;
-    let isPriceLoading = true;
-    let isInitialized = false;
+    let isMobileMenuOpen = false;
   
     if (typeof window !== 'undefined') {
       const handleScroll = () => {
         const currentScrollY = window.scrollY;
-        isHeaderVisible = currentScrollY <= 100 || (currentScrollY < lastScrollY && currentScrollY <= 100);
+        isHeaderVisible = currentScrollY <= 25 || (currentScrollY < lastScrollY && currentScrollY <= 25);
         lastScrollY = currentScrollY;
       };
       
@@ -52,46 +50,14 @@
   
     $: error = $wallet.error;
 
-    async function fetchTVL() {
-      if (!isInitialized) {
-        isTvlLoading = true;
-        isPriceLoading = true;
-      }
-
-      try {
-        // Récupérer la TVL et le prix en parallèle
-        const [tvlResponse, usdcPrice] = await Promise.all([
-          fetch('/api/vault/detrade-core-usdc/tvl'),
-          prices.getPrice('USDC')
-        ]);
-        
-        if (!tvlResponse.ok) {
-          throw new Error(`HTTP error! status: ${tvlResponse.status}`);
-        }
-        
-        const data = await tvlResponse.json();
-        tvlValue = data.tvl;
-        tvlUsdValue = Number(tvlValue) * usdcPrice;
-      } catch (error) {
-        console.error('Error fetching TVL:', error);
-        tvlValue = "Error";
-        tvlUsdValue = 0;
-      } finally {
-        isTvlLoading = false;
-        isPriceLoading = false;
-        isInitialized = true;
+    function scrollToSection(id: string) {
+      isMobileMenuOpen = false;
+      const section = document.getElementById(id);
+      if (section) {
+        section.scrollIntoView({ behavior: 'smooth' });
+        history.replaceState(null, '', `#${id}`);
       }
     }
-
-    onMount(() => {
-      // Commencer le chargement immédiatement
-      fetchTVL();
-      
-      // Mettre à jour la TVL toutes les 5 minutes
-      const interval = setInterval(fetchTVL, 300000);
-      
-      return () => clearInterval(interval);
-    });
 </script>
   
 {#if isAppRoute}
@@ -104,14 +70,31 @@
         class="logo" 
         on:click={() => goto('/')}
       />
+      {#if $page.url.pathname !== '/'}
+        <a class="nav-link desktop" on:click|preventDefault={() => goto('/')}>Vaults</a>
+      {:else}
+        <span class="nav-link desktop disabled">Portfolio</span>
+      {/if}
     </div>
     <div class="header-right">
+      <button class="hamburger" on:click={() => isMobileMenuOpen = !isMobileMenuOpen} aria-label="Menu" aria-expanded={isMobileMenuOpen}>
+        <span class="bar"></span>
+        <span class="bar"></span>
+        <span class="bar"></span>
+      </button>
       <div class="wallet-section">
         <WalletConnect />
       </div>
     </div>
   </div>
 </header>
+{/if}
+  
+{#if isMobileMenuOpen}
+  <nav class="mobile-menu" transition:fly={{ y: -40, duration: 600, delay: 900, easing: quintOut }}>
+    <a class="nav-link mobile" on:click|preventDefault={() => scrollToSection('vaults')}>Vaults</a>
+    <!-- autres liens ici si besoin -->
+  </nav>
 {/if}
   
 <style>
@@ -123,9 +106,12 @@
       width: 100%;
       z-index: 100;
       padding: 1rem 0;
-      background: transparent;
-      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      background: rgba(10, 34, 58, 0.4);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       transform: translateY(0);
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
     }
 
     header.hidden {
@@ -142,25 +128,30 @@
       justify-content: space-between;
       gap: var(--spacing-lg, 2rem);
       position: relative;
-      min-height: 40px;
-      height: 40px;
+      min-height: 48px;
+      height: 48px;
     }
   
     .logo-section {
       display: flex;
       align-items: center;
-      gap: 2rem;
+      gap: 2.5rem;
+      padding-left: 0.5rem;
     }
   
     .logo {
-      height: clamp(24px, 4vw, 32px);
+      height: clamp(38.8px, 4.8vw, 38.4px);
       width: auto;
       object-fit: contain;
       transition: all 0.3s ease;
+      cursor: pointer;
+      filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.3));
     }
   
     .logo:hover {
-      opacity: 0.8;
+      opacity: 1;
+      transform: scale(1.02);
+      filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.4));
     }
   
     .wallet-section {
@@ -177,142 +168,29 @@
       position: relative;
     }
 
-    .tvl-badge {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      white-space: nowrap;
-      transition: all 0.3s ease;
-      height: 100%;
-      padding: 0.2rem 0.4rem;
-    }
-
-    .label {
-      /* Typographie */
-      font-size: 0.875rem;
-      font-weight: 500;
-      line-height: 1;
-      
-      /* Couleur */
-      color: #b4c6ef;
-      
-      /* Transitions */
-      transition: color 0.2s ease;
-      
-      /* Espacement */
-      margin: 0;
-      padding: 0;
-      
-      /* Alignement */
-      display: inline-block;
-      vertical-align: middle;
-    }
-
-    .separator {
-      color: #b4c6ef;
-      font-size: 0.875rem;
-      font-weight: 500;
-      line-height: 1;
-      margin: 0;
-      padding: 0;
-      display: inline-block;
-      vertical-align: middle;
-    }
-
-    .value {
-      /* Dimensions de base */
-      min-width: 80px;
-      height: 1.2em;
-      border-radius: 4px;
-      
-      /* Style de la valeur */
-      background: linear-gradient(135deg, #fff 0%, #4DA8FF 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      font-size: 0.875rem;
-      font-weight: 600;
-      text-shadow: 0 0 20px rgba(77, 168, 255, 0.5);
-      
-      /* Espacement */
-      padding: 0.2rem 0.4rem;
-      line-height: 1;
-      
-      /* Transitions */
-      transition: all 0.3s ease;
-      
-      /* Alignement */
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .tvl-badge:hover .label,
-    .tvl-badge:hover .separator {
-      color: #ffffff;
-    }
-
-    .shimmer {
-      position: relative;
-      overflow: hidden;
-      background: rgba(13, 25, 42, 0.7);
-      filter: blur(0.5px);
-    }
-
-    .shimmer::after {
-      position: absolute;
-      top: 0;
-      right: 0;
-      bottom: 0;
-      left: 0;
-      transform: translateX(-100%);
-      background-image: linear-gradient(
-        90deg,
-        transparent 0,
-        rgba(77, 168, 255, 0.1) 20%,
-        rgba(255, 255, 255, 0.2) 60%,
-        transparent
-      );
-      animation: shimmer 2s infinite;
-      content: '';
-    }
-
-    @keyframes shimmer {
-      100% {
-        transform: translateX(100%);
-      }
-    }
-  
     @media (max-width: 1200px) {
-      .tvl-badge {
-        opacity: 0;
-        pointer-events: none;
-      }
-      
       .logo-section {
-        gap: 1rem;
+        gap: 1.5rem;
       }
     }
 
     @media (max-width: 640px) {
       header {
         padding: 0.75rem 0;
+        background: rgba(255, 255, 255, 0.08);
       }
       
       .header-content {
-        height: 32px;
+        height: 40px;
+        padding: 0 1rem;
       }
 
-      .container {
-        padding-inline: 1rem;
-      }
-  
       .logo {
         height: 28px;
+      }
+
+      .nav-link.desktop {
+        display: none;
       }
     }
   
@@ -357,5 +235,147 @@
 
     .dashboard-link:hover {
       color: #ffffff;
+    }
+
+    .vaults-btn {
+      background: linear-gradient(135deg, #4DA8FF 0%, #fff 100%);
+      color: #0d111c;
+      border: none;
+      padding: 0.5rem 1.25rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      min-width: 80px;
+      box-shadow: 0 2px 8px rgba(77, 168, 255, 0.15);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .vaults-btn:hover {
+      opacity: 0.85;
+      transform: translateY(-1px) scale(1.03);
+      box-shadow: 0 4px 16px rgba(77, 168, 255, 0.25);
+    }
+
+    .nav-link {
+      color: #b4c6ef;
+      text-decoration: none;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: color 0.2s;
+      cursor: pointer;
+    }
+
+    .nav-link:hover {
+      color: #ffffff;
+    }
+
+    .nav-link.desktop {
+      display: inline-block;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #ffffff;
+      font-family: inherit;
+      letter-spacing: inherit;
+      position: relative;
+      padding: 0.5rem 1.25rem;
+      transition: all 0.3s ease;
+      background: rgba(10, 34, 58, 0.503);
+      border-radius: 0.75rem;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      box-shadow: 0 0 0 rgba(25, 62, 182, 0.264);
+    }
+
+    .nav-link.desktop:hover {
+      color: #ffffff;
+      transform: translateY(-2px);
+      background: rgba(10, 34, 58, 0.7);
+      border-color: rgba(255, 255, 255, 0.1);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .nav-link.desktop:active {
+      transform: translateY(0);
+      background: rgba(10, 34, 58, 0.503);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+
+    /* Menu mobile */
+    .hamburger {
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      width: 32px;
+      height: 32px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      z-index: 120;
+      margin-left: 0.5rem;
+    }
+
+    .hamburger .bar {
+      width: 22px;
+      height: 3px;
+      background: #b4c6ef;
+      margin: 3px 0;
+      border-radius: 2px;
+      transition: all 0.3s;
+    }
+
+    @media (max-width: 640px) {
+      .hamburger {
+        display: flex;
+      }
+    }
+
+    .mobile-menu {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(13, 25, 42, 0.98);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      gap: 2.5rem;
+    }
+
+    .nav-link.mobile {
+      font-size: 1.5rem;
+      font-weight: 500;
+      color: #b4c6ef;
+      text-align: center;
+      transition: color 0.2s;
+    }
+
+    .nav-link.mobile:hover {
+      color: #fff;
+    }
+
+    @media (min-width: 641px) {
+      .mobile-menu {
+        display: none;
+      }
+    }
+
+    .nav-link.desktop.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .nav-link.desktop.disabled:hover {
+      transform: none;
+      background: rgba(10, 34, 58, 0.503);
+      box-shadow: none;
     }
 </style> 
