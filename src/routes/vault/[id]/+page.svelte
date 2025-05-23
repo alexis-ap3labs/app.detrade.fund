@@ -35,6 +35,18 @@
   $: netAprValue = netAprData?.data?.apr ?? 0;
   $: apr30dValue = apr30dData?.data?.apr ?? 0;
 
+  // Métadonnées dynamiques
+  $: pageTitle = vault ? `DeTrade – ${vault.name} Vault` : 'DeTrade – Vault';
+  $: pageDescription = vault 
+    ? `Explore the ${vault.name} Vault on DeTrade. Current TVL: $${tvlUsd.toLocaleString()}, Net APR: ${netAprValue.toFixed(2)}%, 30D APR: ${apr30dValue.toFixed(2)}%. Access institutional-grade DeFi strategies.`
+    : 'Access high-yield DeFi strategies with institutional-grade security.';
+
+  // Gestion des images dynamiques
+  $: vaultImage = vault 
+    ? `/${vault.underlyingToken.toLowerCase()}-vault.png`
+    : '/og-image.png';
+  $: fullImageUrl = `https://app2-gules-sigma.vercel.app${vaultImage}`;
+
   function isTvlStale(tvlData: any) {
     if (!tvlData) return true;
     // 5 minutes
@@ -95,6 +107,30 @@
     }
   });
 </script>
+
+<svelte:head>
+  <title>{pageTitle}</title>
+  <meta name="description" content={pageDescription} />
+  <meta name="keywords" content="DeTrade, DeFi, Trading, Cryptocurrency, Blockchain, Finance, Decentralized, Yield Farming, Automated Trading, Digital Assets, Lagoon Protocol, DeFi Vaults, Yield Vaults, {vault?.underlyingToken || 'USDC'} Vault, Stablecoin Yield, Ethereum Yield, High-Yield Vaults, Automated Vaults, Smart Vaults" />
+  <link rel="canonical" href="https://app2-gules-sigma.vercel.app/vault/{vaultId}" />
+  
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://app2-gules-sigma.vercel.app/vault/{vaultId}" />
+  <meta property="og:title" content={pageTitle} />
+  <meta property="og:description" content={pageDescription} />
+  <meta property="og:image" content={fullImageUrl} />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:site_name" content="DeTrade" />
+  
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:domain" content="app2-gules-sigma.vercel.app" />
+  <meta name="twitter:title" content={pageTitle} />
+  <meta name="twitter:description" content={pageDescription} />
+  <meta property="twitter:image" content={fullImageUrl} />
+</svelte:head>
 
 <Header />
 <main class="main-content">

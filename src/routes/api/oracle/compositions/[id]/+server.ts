@@ -6,15 +6,13 @@ import type { Document, WithId } from 'mongodb';
 
 interface OracleDocument {
   timestamp: string;
-  overview: {
-    summary: {
-      total_value_usdc?: string;
-      total_value_weth?: string;
-      spot_value_usdc?: string;
-      spot_value_weth?: string;
-    };
-    positions: Record<string, string>;
+  nav: {
+    usdc?: string;
+    weth?: string;
+    share_price: string;
+    total_supply: string;
   };
+  positions?: Record<string, string>;
 }
 
 interface Allocation {
@@ -64,46 +62,32 @@ export const GET: RequestHandler = async ({ params }) => {
     const rawComposition = latestComposition[0] as WithId<Document>;
     const composition = {
       timestamp: rawComposition.timestamp as string,
-      overview: {
-        summary: {
-          total_value_usdc: rawComposition.overview?.summary?.total_value_usdc as string,
-          total_value_weth: rawComposition.overview?.summary?.total_value_weth as string,
-          spot_value_usdc: rawComposition.overview?.summary?.spot_value_usdc as string,
-          spot_value_weth: rawComposition.overview?.summary?.spot_value_weth as string
-        },
-        positions: rawComposition.overview?.positions as Record<string, string>
-      }
+      nav: {
+        usdc: rawComposition.nav?.usdc as string,
+        weth: rawComposition.nav?.weth as string,
+        share_price: rawComposition.nav?.share_price as string,
+        total_supply: rawComposition.nav?.total_supply as string
+      },
+      positions: rawComposition.positions as Record<string, string>
     } as OracleDocument;
 
     console.log('Latest composition found:', composition);
 
     // Calculer les pourcentages de répartition
     const isEthVault = id === 'detrade-core-eth';
-    const totalValue = parseFloat(isEthVault ? composition.overview.summary.total_value_weth || '0' : composition.overview.summary.total_value_usdc || '0');
-    const positions = composition.overview.positions;
-    const spotValue = parseFloat(isEthVault ? composition.overview.summary.spot_value_weth || '0' : composition.overview.summary.spot_value_usdc || '0');
+    const totalValue = parseFloat(isEthVault ? composition.nav.weth || '0' : composition.nav.usdc || '0');
+    const positions = composition.positions || {};
+    const spotValue = 0; // Nous n'avons plus de spot value dans la nouvelle structure
 
     // Vérifier que les valeurs sont valides
     if (isNaN(totalValue) || totalValue <= 0) {
       console.error('Invalid total value:', {
-        raw: isEthVault ? composition.overview.summary.total_value_weth : composition.overview.summary.total_value_usdc,
+        raw: isEthVault ? composition.nav.weth : composition.nav.usdc,
         parsed: totalValue,
         vaultId: id
       });
       return json(
         { error: 'Invalid total value in composition data' },
-        { status: 400 }
-      );
-    }
-
-    if (isNaN(spotValue) || spotValue < 0) {
-      console.error('Invalid spot value:', {
-        raw: isEthVault ? composition.overview.summary.spot_value_weth : composition.overview.summary.spot_value_usdc,
-        parsed: spotValue,
-        vaultId: id
-      });
-      return json(
-        { error: 'Invalid spot value in composition data' },
         { status: 400 }
       );
     }
@@ -124,14 +108,6 @@ export const GET: RequestHandler = async ({ params }) => {
         console.warn(`Invalid position value for ${position}:`, value);
       }
     });
-
-    // Ajouter le spot seulement si sa valeur est valide
-    if (spotValue > 0) {
-      allocation['spot'] = {
-        percentage: Number(((spotValue / totalValue) * 100).toFixed(2)),
-        value_usdc: isEthVault ? `${spotValue} WETH` : composition.overview.summary.spot_value_usdc
-      };
-    }
     
     // Vérifier qu'il y a au moins une position valide
     if (Object.keys(allocation).length === 0) {
@@ -146,7 +122,7 @@ export const GET: RequestHandler = async ({ params }) => {
       compositions: {
         _id: rawComposition._id.toString(),
         timestamp: composition.timestamp,
-        total_value_usdc: isEthVault ? `${totalValue} WETH` : (composition.overview.summary.total_value_usdc || '0'),
+        total_value_usdc: isEthVault ? `${totalValue} WETH` : composition.nav.usdc,
         allocation
       }
     });

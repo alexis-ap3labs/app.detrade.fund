@@ -5,6 +5,30 @@
   import FloatingHexagons from '$lib/components/FloatingHexagons.svelte';
 </script>
 
+<svelte:head>
+  <title>DeTrade – Vaults</title>
+  <meta name="keywords" content="DeTrade, DeFi, Trading, Cryptocurrency, Blockchain, Finance, Decentralized, Yield Farming, Automated Trading, Digital Assets, Lagoon Protocol, DeFi Vaults, Yield Vaults, USDC Vault, EURC Vault, ETH Vault, Stablecoin Yield, Ethereum Yield, High-Yield Vaults, Automated Vaults, Smart Vaults" />
+  <meta name="description" content="Actively managed vaults powered by real-time data and protocol integrations. Built for performance and open to all. Access high-yield DeFi strategies with institutional-grade security." />
+  <link rel="canonical" href="https://app2-gules-sigma.vercel.app" />
+  
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://app2-gules-sigma.vercel.app" />
+  <meta property="og:title" content="DeTrade – Vaults" />
+  <meta property="og:description" content="Actively managed vaults powered by real-time data and protocol integrations. Built for performance and open to all. Access high-yield DeFi strategies with institutional-grade security." />
+  <meta property="og:image" content="/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:site_name" content="DeTrade" />
+  
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:domain" content="app2-gules-sigma.vercel.app" />
+  <meta name="twitter:title" content="DeTrade – Vaults" />
+  <meta name="twitter:description" content="Actively managed vaults powered by real-time data and protocol integrations. Built for performance and open to all." />
+  <meta property="twitter:image" content="/og-image.png" />
+</svelte:head>
+
 <Header />
 <main class="main-content">
   <FloatingHexagons />

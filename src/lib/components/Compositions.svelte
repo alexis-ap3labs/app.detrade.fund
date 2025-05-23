@@ -152,7 +152,7 @@
           <div class="info-row">
             <span class="info-label">ID:</span>
             <a 
-              href="https://oracle.detrade.fund/detrade-core-usdc/oracle/{$compositionStore.compositions[vaultId]?._id}" 
+              href="https://oracle.detrade.fund/{vaultId}/oracle/{$compositionStore.compositions[vaultId]?._id}" 
               target="_blank" 
               rel="noopener noreferrer"
               class="info-value link"
