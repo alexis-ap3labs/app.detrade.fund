@@ -17,23 +17,17 @@
   import Details from '$lib/components/Details.svelte';
   import VaultSidePanel from '$lib/components/VaultSidePanel.svelte';
 
+  export let data;
+
   // Récupérer l'ID du vault depuis l'URL
   const vaultId = $page.params.id;
   
-  // Trouver les informations du vault
-  $: vault = ALL_VAULTS.find(v => v.id === vaultId);
-
-  // Correction du nom du réseau
-  $: network = vault ? { icon: vault.networkIcon, name: vault.network === NETWORKS.BASE.name ? NETWORKS.BASE.name : NETWORKS.ETHEREUM.name } : null;
-
-  // Récupération dynamique via les stores
-  $: tvlData = $tvl[vaultId];
-  $: apr30dData = $thirtyDayApr[vaultId];
-  $: netAprData = $netApr[vaultId];
-  $: priceData = vault ? $prices[vault.underlyingToken] : undefined;
-  $: tvlUsd = (tvlData?.tvl && priceData?.price) ? parseFloat(tvlData.tvl) * priceData.price : 0;
-  $: netAprValue = netAprData?.data?.apr ?? 0;
-  $: apr30dValue = apr30dData?.data?.apr ?? 0;
+  // Utiliser les données du serveur
+  $: vault = data.vault;
+  $: network = data.network;
+  $: tvlUsd = data.tvlUsd ?? 0;
+  $: netAprValue = data.netAprValue ?? 0;
+  $: apr30dValue = data.apr30dValue ?? 0;
 
   // Métadonnées dynamiques
   $: pageTitle = vault ? `DeTrade – ${vault.name} Vault` : 'DeTrade – Vault';
@@ -139,7 +133,7 @@
       <div class="content-wrapper">
         <div class="charts-container">
           <div class="chart-box">
-            <VaultHeader {vault} {tvlUsd} {network} netApr={netAprValue} apr30d={apr30dValue} />
+            <VaultHeader {vault} {tvlUsd} {network} netAprValue={netAprValue} apr30d={apr30dValue} />
           </div>
           <div class="chart-box">
             <PpsChart {vaultId} underlyingToken={vault.underlyingToken} />
