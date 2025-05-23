@@ -25,14 +25,14 @@
   // Utiliser les données du serveur
   $: vault = data.vault;
   $: network = data.network;
-  $: tvlUsd = data.tvlUsd ?? 0;
+  $: totalAssets = data.totalAssets ?? '0';
   $: netAprValue = data.netAprValue ?? 0;
   $: apr30dValue = data.apr30dValue ?? 0;
 
   // Métadonnées dynamiques
   $: pageTitle = vault ? `DeTrade – ${vault.name} Vault` : 'DeTrade – Vault';
   $: pageDescription = vault 
-    ? `Explore the ${vault.name} Vault on DeTrade. Current TVL: $${tvlUsd.toLocaleString()}, Net APR: ${netAprValue.toFixed(2)}%, 30D APR: ${apr30dValue.toFixed(2)}%. Access institutional-grade DeFi strategies.`
+    ? `Explore the ${vault.name} Vault on DeTrade. Current TVL: ${totalAssets} ${vault.underlyingToken}, Net APR: ${netAprValue.toFixed(2)}%, 30D APR: ${apr30dValue.toFixed(2)}%. Access institutional-grade DeFi strategies.`
     : 'Access high-yield DeFi strategies with institutional-grade security.';
 
   // Gestion des images dynamiques
@@ -133,7 +133,7 @@
       <div class="content-wrapper">
         <div class="charts-container">
           <div class="chart-box">
-            <VaultHeader {vault} {tvlUsd} {network} netAprValue={netAprValue} apr30d={apr30dValue} />
+            <VaultHeader {vault} {totalAssets} {network} netAprValue={netAprValue} apr30d={apr30dValue} />
           </div>
           <div class="chart-box">
             <PpsChart {vaultId} underlyingToken={vault.underlyingToken} />

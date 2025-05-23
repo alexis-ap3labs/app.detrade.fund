@@ -9,11 +9,10 @@
 
   export let vault: any;
   export let network: any;
-  export let tvlUsd: number | undefined = 0;
+  export let totalAssets: string = '0';
   export let netAprValue: number | undefined = 0;
   export let apr30d: number | undefined = 0;
 
-  let tvlInAssets = '0';
   let isLoading = {
     tvl: true,
     netApr: true,
@@ -34,42 +33,15 @@
   let lastTvlUpdate = 0;
   const TVL_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-  // Calculer la valeur USD en multipliant par le prix de l'underlying token
-  $: if (browser && mounted && vault?.underlyingToken) {
-    console.log('[VaultHeader] Calculating TVL USD:', { 
-      tvlInAssets, 
-      underlyingToken: vault.underlyingToken,
-      priceData: $prices[vault.underlyingToken]
-    });
-    
-    if (vault.id === 'detrade-core-eth') {
-      // Pour le vault ETH, on utilise le prix du WETH
-      const wethPrice = $prices['WETH']?.price;
-      if (wethPrice) {
-        tvlUsd = parseFloat(tvlInAssets) * wethPrice;
-        console.log('[VaultHeader] TVL USD calculated with WETH price:', { tvlInAssets, wethPrice, tvlUsd });
-      } else {
-        console.warn('[VaultHeader] WETH price not found in store');
-        tvlUsd = 0;
-      }
-    } else {
-      const priceData = $prices[vault.underlyingToken];
-      if (priceData?.price) {
-        tvlUsd = parseFloat(tvlInAssets) * priceData.price;
-        console.log('[VaultHeader] TVL USD calculated:', { tvlInAssets, price: priceData.price, tvlUsd });
-      } else {
-        console.warn('[VaultHeader] Price not found for', vault.underlyingToken);
-        tvlUsd = 0;
-      }
-    }
-  }
-
-  $: formattedTvlUsd = tvlUsd ? new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
-  }).format(tvlUsd) : '$0';
+  $: formattedTotalAssets = parseFloat(totalAssets) >= 1000
+    ? `${(parseFloat(totalAssets) / 1000).toLocaleString(undefined, { 
+        minimumFractionDigits: vault.underlyingToken === 'WETH' ? 3 : 1, 
+        maximumFractionDigits: vault.underlyingToken === 'WETH' ? 3 : 1 
+      })}K ${vault.underlyingToken}`
+    : `${parseFloat(totalAssets).toLocaleString(undefined, { 
+        minimumFractionDigits: vault.underlyingToken === 'WETH' ? 3 : 2, 
+        maximumFractionDigits: vault.underlyingToken === 'WETH' ? 3 : 2 
+      })} ${vault.underlyingToken}`;
 
   $: formattedNetApr = netAprValue ? `${netAprValue.toFixed(2)}%` : '0%';
   $: formattedApr30d = apr30d ? `${apr30d.toFixed(2)}%` : '0%';
@@ -107,7 +79,7 @@
         (async () => {
           try {
             const now = Date.now();
-            if (now - lastTvlUpdate < TVL_CACHE_DURATION && tvlInAssets !== '0') {
+            if (now - lastTvlUpdate < TVL_CACHE_DURATION && totalAssets !== '0') {
               console.log('Using cached TVL data');
               return true;
             }
@@ -124,7 +96,7 @@
             const data = await response.json();
             console.log('TVL data received:', data);
             if (data.latestTvl) {
-              tvlInAssets = data.latestTvl.totalAssets;
+              totalAssets = data.latestTvl.totalAssets;
               lastTvlUpdate = now;
               isLoading.tvl = false;
             }
@@ -175,7 +147,7 @@
       };
 
       console.log('Loading states updated:', isLoading);
-      console.log('Current values:', { netAprValue, apr30d, tvlInAssets });
+      console.log('Current values:', { netAprValue, apr30d, totalAssets });
 
       retryCount = 0;
     } catch (error) {
@@ -315,41 +287,16 @@
           <NumberRoll value={0} suffix={` ${vault.underlyingToken}`} format={n => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} />
         {:else if errors.tvl}
           <span class="error-message">Error loading</span>
-        {:else if parseFloat(tvlInAssets) >= 1000}
-          <div class="tvl-tooltip">
-            <NumberRoll 
-              value={parseFloat(tvlInAssets) / 1000} 
-              suffix={`K ${vault.underlyingToken}`}
-              format={n => n.toLocaleString(undefined, { 
-                minimumFractionDigits: vault.underlyingToken === 'WETH' ? 3 : 1, 
-                maximumFractionDigits: vault.underlyingToken === 'WETH' ? 3 : 1 
-              })}
-            />
-            <div class="tooltip">
-              <NumberRoll 
-                value={tvlUsd}
-                prefix="$"
-                format={n => n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-              />
-            </div>
-          </div>
         {:else}
           <div class="tvl-tooltip">
             <NumberRoll 
-              value={parseFloat(tvlInAssets)}
+              value={parseFloat(totalAssets)}
               suffix={` ${vault.underlyingToken}`}
               format={n => n.toLocaleString(undefined, { 
                 minimumFractionDigits: vault.underlyingToken === 'WETH' ? 3 : 2, 
                 maximumFractionDigits: vault.underlyingToken === 'WETH' ? 3 : 2 
               })}
             />
-            <div class="tooltip">
-              <NumberRoll 
-                value={tvlUsd}
-                prefix="$"
-                format={n => n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-              />
-            </div>
           </div>
         {/if}
       </div>

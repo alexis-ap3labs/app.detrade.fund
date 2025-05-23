@@ -52,7 +52,7 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
     // Fetch TVL data with latest=true parameter
     const tvlResponse = await fetch(`/api/vaults/${vaultId}/metrics/tvl?latest=true`);
     const tvlData = await tvlResponse.json();
-    const latestTvl = tvlData.latestTvl?.totalAssets || '0';
+    const totalAssets = tvlData.latestTvl?.totalAssets || '0';
 
     // Fetch 30D APR data
     const apr30dResponse = await fetch(`/api/vaults/${vaultId}/metrics/30d_apr`);
@@ -64,20 +64,13 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
     const netAprData = await netAprResponse.json();
     const netAprValue = netAprData.apr || 0;
 
-    // Fetch price data
-    const priceResponse = await fetch(`/api/price/${vault.underlyingToken}`);
-    const priceData = await priceResponse.json();
-    const tvlUsd = (latestTvl && priceData.price) ? parseFloat(latestTvl) * priceData.price : 0;
-
     console.log('TVL Data:', {
-      latestTvl,
-      price: priceData.price,
-      tvlUsd
+      totalAssets
     });
 
     return {
       vault,
-      tvlUsd,
+      totalAssets,
       netAprValue,
       apr30dValue,
       network: {
