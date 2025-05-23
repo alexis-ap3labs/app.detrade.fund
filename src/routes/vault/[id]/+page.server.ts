@@ -49,28 +49,10 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
   }
 
   try {
-    // Connexion à MongoDB
-    const client = await clientPromise;
-    const db = client.db(vaultId);
-    const collection = db.collection('subgraph');
-    
-    // Récupérer les événements pertinents
-    const events = await collection
-      .find({ 
-        $or: [
-          { type: 'settleDeposit' },
-          { type: 'settleRedeem' },
-          { type: 'totalAssetsUpdated' }
-        ],
-        blockTimestamp: { $exists: true, $ne: null }
-      })
-      .sort({ blockTimestamp: -1 })
-      .limit(1)
-      .toArray();
-
-    // Récupérer le dernier TVL
-    const latestEvent = events[0];
-    const latestTvl = latestEvent?.totalAssets ? divideBigNumber(latestEvent.totalAssets, decimals) : '0';
+    // Fetch TVL data with latest=true parameter
+    const tvlResponse = await fetch(`/api/vaults/${vaultId}/metrics/tvl?latest=true`);
+    const tvlData = await tvlResponse.json();
+    const latestTvl = tvlData.latestTvl?.totalAssets || '0';
 
     // Fetch 30D APR data
     const apr30dResponse = await fetch(`/api/vaults/${vaultId}/metrics/30d_apr`);
@@ -86,6 +68,12 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
     const priceResponse = await fetch(`/api/price/${vault.underlyingToken}`);
     const priceData = await priceResponse.json();
     const tvlUsd = (latestTvl && priceData.price) ? parseFloat(latestTvl) * priceData.price : 0;
+
+    console.log('TVL Data:', {
+      latestTvl,
+      price: priceData.price,
+      tvlUsd
+    });
 
     return {
       vault,
