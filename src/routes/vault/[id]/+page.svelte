@@ -16,23 +16,22 @@
   import Compositions from '$lib/components/Compositions.svelte';
   import Details from '$lib/components/Details.svelte';
   import VaultSidePanel from '$lib/components/VaultSidePanel.svelte';
-
-  export let data;
+  import Activities from '$lib/components/Activities.svelte';
 
   // Récupérer l'ID du vault depuis l'URL
   const vaultId = $page.params.id;
   
-  // Utiliser les données du serveur
-  $: vault = data.vault;
-  $: network = data.network;
-  $: totalAssets = data.totalAssets ?? '0';
-  $: netAprValue = data.netAprValue ?? 0;
-  $: apr30dValue = data.apr30dValue ?? 0;
+  // Trouver le vault correspondant
+  const vault = ALL_VAULTS.find(v => v.id === vaultId);
+  const network = vault ? {
+    icon: vault.networkIcon,
+    name: vault.network === NETWORKS.BASE.name ? NETWORKS.BASE.name : NETWORKS.ETHEREUM.name
+  } : null;
 
   // Métadonnées dynamiques
   $: pageTitle = vault ? `DeTrade – ${vault.name} Vault` : 'DeTrade – Vault';
   $: pageDescription = vault 
-    ? `Explore the ${vault.name} Vault on DeTrade. Current TVL: ${totalAssets} ${vault.underlyingToken}, Net APR: ${netAprValue.toFixed(2)}%, 30D APR: ${apr30dValue.toFixed(2)}%. Access institutional-grade DeFi strategies.`
+    ? `Explore the ${vault.name} Vault on DeTrade. Access institutional-grade DeFi strategies.`
     : 'Access high-yield DeFi strategies with institutional-grade security.';
 
   // Gestion des images dynamiques
@@ -41,63 +40,9 @@
     : '/og-image.png';
   $: fullImageUrl = `https://app2-gules-sigma.vercel.app${vaultImage}`;
 
-  function isTvlStale(tvlData: any) {
-    if (!tvlData) return true;
-    // 5 minutes
-    return Date.now() - tvlData.lastUpdated > 5 * 60 * 1000;
-  }
-
-  function isAprStale(aprData: any) {
-    if (!aprData) return true;
-    // 5 minutes
-    return Date.now() - new Date(aprData.data?.timestamp).getTime() > 5 * 60 * 1000;
-  }
-
   onMount(() => {
     if (!vault) {
       window.location.href = '/';
-    } else {
-      // Charger les données publiques indépendamment de la connexion du wallet
-      if (!get(thirtyDayApr)[vaultId] || isAprStale(get(thirtyDayApr)[vaultId])) {
-        thirtyDayApr.setLoading(vaultId, true);
-        fetch(`/api/vaults/${vaultId}/metrics/30d_apr`)
-          .then(response => response.json())
-          .then(data => {
-            if (data.apr !== undefined) {
-              thirtyDayApr.setApr(vaultId, {
-                apr: data.apr,
-                timestamp: new Date().toISOString()
-              });
-            }
-          })
-          .catch(error => {
-            console.error(`Error fetching 30D APR for ${vaultId}:`, error);
-            thirtyDayApr.setError(vaultId, 'Failed to fetch APR data');
-          });
-      }
-      if (!get(netApr)[vaultId] || isAprStale(get(netApr)[vaultId])) {
-        netApr.setLoading(vaultId, true);
-        fetch(`/api/vaults/${vaultId}/metrics/net_apr`)
-          .then(response => response.json())
-          .then(data => {
-            if (data.apr !== undefined) {
-              netApr.setApr(vaultId, {
-                apr: data.apr,
-                startDate: data.startDate,
-                endDate: data.endDate,
-                totalReturn: data.totalReturn,
-                timestamp: new Date().toISOString()
-              });
-            }
-          })
-          .catch(error => {
-            console.error(`Error fetching Net APR for ${vaultId}:`, error);
-            netApr.setError(vaultId, 'Failed to fetch APR data');
-          });
-      }
-      if (!get(tvl)[vaultId] || isTvlStale(get(tvl)[vaultId])) {
-        tvl.refreshTvl(vaultId);
-      }
     }
   });
 </script>
@@ -133,7 +78,7 @@
       <div class="content-wrapper">
         <div class="charts-container">
           <div class="chart-box">
-            <VaultHeader {vault} {totalAssets} {network} netAprValue={netAprValue} apr30d={apr30dValue} />
+            <VaultHeader {vault} {network} />
           </div>
           <div class="chart-box">
             <PpsChart {vaultId} underlyingToken={vault.underlyingToken} />
@@ -150,6 +95,7 @@
           <div class="chart-box">
             <Details {vaultId} />
           </div>
+          <Activities {vaultId} />
         </div>
         <div class="side-container">
           <VaultSidePanel vaultId={vaultId} />
@@ -284,5 +230,13 @@
     .charts-container {
       width: 70%;
     }
+  }
+
+  .loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    width: 100%;
   }
 </style> 

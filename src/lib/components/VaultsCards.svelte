@@ -174,6 +174,18 @@
   function handleVaultClick(vaultId: string) {
     goto(`/vault/${vaultId}`);
   }
+
+  function cropHash(hash: string | undefined): string {
+    if (!hash) return 'Unknown';
+    const realHash = hash.slice(0, 66); // pour un hash de tx, sinon juste hash
+    return `${realHash.slice(0, 6)}...${realHash.slice(-4)}`;
+  }
+
+  function getActivityLinkFromId(id: string | undefined): string {
+    if (!id) return '#';
+    const hash = id.slice(0, 66);
+    return getExplorerBaseUrl() + hash;
+  }
 </script>
 
 <div class="vaults-list">
