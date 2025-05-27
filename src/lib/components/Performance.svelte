@@ -15,6 +15,13 @@
   let performanceFee: string = ALL_VAULTS.find(vault => vault.id === vaultId)?.performanceFee || '10%';
   let feeReceiver: string = ALL_VAULTS.find(vault => vault.id === vaultId)?.feeReceiver || '0x1234...5678';
 
+  // Cache system
+  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+  let cache = {
+    data: null as any,
+    timestamp: 0
+  };
+
   function formatAddress(address: string): string {
     if (!address) return '';
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -27,15 +34,33 @@
   async function fetchAprData() {
     if (!browser || !mounted) return;
     
+    // Check cache
+    const now = Date.now();
+    if (cache.data && (now - cache.timestamp) < CACHE_DURATION) {
+      apr30d = cache.data.apr30d;
+      apr7d = cache.data.apr7d;
+      netAprValue = cache.data.netAprValue;
+      return;
+    }
+
     try {
-      // Fetch 30D APR
-      const response30d = await fetch(`/api/vaults/${vaultId}/metrics/30d_apr`);
-      const data30d = await response30d.json();
+      // Fetch all data in parallel
+      const [response30d, response7d, responseNet] = await Promise.all([
+        fetch(`/api/vaults/${vaultId}/metrics/30d_apr`),
+        fetch(`/api/vaults/${vaultId}/metrics/7d_apr`),
+        fetch(`/api/vaults/${vaultId}/metrics/net_apr`)
+      ]);
+
+      const [data30d, data7d, dataNet] = await Promise.all([
+        response30d.json(),
+        response7d.json(),
+        responseNet.json()
+      ]);
+
+      // Process 30D APR
       apr30d = data30d.apr ? `${parseFloat(data30d.apr).toFixed(2)}%` : null;
 
-      // Fetch 7D APR
-      const response7d = await fetch(`/api/vaults/${vaultId}/metrics/7d_apr`);
-      const data7d = await response7d.json();
+      // Process 7D APR
       if (data7d.apr) {
         sevenDayApr.setApr(vaultId, data7d.apr, new Date().toISOString());
         apr7d = `${parseFloat(data7d.apr).toFixed(2)}%`;
@@ -44,13 +69,17 @@
         apr7d = null;
       }
 
-      // Fetch Net APR
-      const responseNet = await fetch(`/api/vaults/${vaultId}/metrics/net_apr`);
-      const dataNet = await responseNet.json();
+      // Process Net APR
       netAprValue = dataNet.apr ? `${parseFloat(dataNet.apr).toFixed(2)}%` : null;
+
+      // Update cache
+      cache = {
+        data: { apr30d, apr7d, netAprValue },
+        timestamp: now
+      };
     } catch (error) {
       console.error('Error fetching APR data:', error);
-      sevenDayApr.setError(vaultId, 'Failed to fetch 7D APR data');
+      sevenDayApr.setError(vaultId, 'Failed to fetch APR data');
     }
   }
 

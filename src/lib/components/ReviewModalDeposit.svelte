@@ -5,6 +5,7 @@
   import { transactions } from '$lib/stores/transactions';
   import { prices } from '$lib/stores/prices';
   import { latestPps } from '$lib/stores/latest_pps';
+  import { fade } from 'svelte/transition';
   const dispatch = createEventDispatcher();
 
   export let open = false;
@@ -23,6 +24,7 @@
   export let initialLatestPps: string = '1';
   export let underlyingToken: string = '';
   export let vaultTicker: string = '';
+  export let selfManaged = false;
 
   let underlyingPrice = 0;
   let unsubscribe: () => void;
@@ -46,8 +48,11 @@
   });
 
   // Souscription au store latestPps
-  $: if ($latestPps[vaultId]?.data?.pps) {
-    currentLatestPps = Number($latestPps[vaultId].data.pps);
+  $: {
+    const latest = $latestPps[vaultId];
+    if (latest && latest.data && typeof latest.data.pps !== 'undefined' && latest.data.pps !== null) {
+      currentLatestPps = Number(latest.data.pps);
+    }
   }
 
   function truncateTo2Decimals(value: number) {
@@ -83,8 +88,10 @@
   $: console.log('Modal state:', { open });
   $: console.log('[ReviewModalDeposit] underlyingPrice:', underlyingPrice, 'depositAmount:', depositAmount);
 
+  let isFadingOut = false;
+  let show = true;
+
   function handleClose() {
-    console.log('Closing modal');
     open = false;
     dispatch('close');
   }
@@ -124,7 +131,6 @@
       
       dispatch('confirm', transaction);
       console.log('ETH deposit transaction dispatched to parent component');
-      return;
     }
 
     // Pour les autres tokens
@@ -183,7 +189,7 @@
 
 {#if open}
   <div class="modal-overlay" on:click={handleClose}></div>
-  <div class="modal-content">
+  <div class="modal-content" transition:fade={{ duration: 300 }} on:outroend={() => { isFadingOut = false; }}>
     <button class="close-btn" on:click={handleClose}>×</button>
     <h2 class="review-title">Review</h2>
     <div class="modal-box-structure">

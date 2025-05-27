@@ -467,7 +467,7 @@
     border: 1px solid rgba(255, 255, 255, 0.05);
     padding: 0;
     position: relative;
-    height: calc(6 * (75px + 3rem + 0.5rem) + 4.5rem);
+    height: calc(5.51 * (75px + 3rem + 0.5rem) + 4.5rem);
     display: flex;
     flex-direction: column;
   }
@@ -572,7 +572,7 @@
   }
 
   .document-item {
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(10, 34, 58, 0.503);
     border-radius: 0.75rem;
     padding: 1.5rem 2rem;
     min-height: 70px;
@@ -694,7 +694,7 @@
     .document-item {
       padding: 1rem;
       text-align: center;
-      background: rgba(255, 255, 255, 0.03);
+      background: rgba(10, 34, 58, 0.503);
     }
 
     .document-header {
