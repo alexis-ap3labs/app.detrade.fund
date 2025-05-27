@@ -294,134 +294,72 @@
   }
 </script>
 
-<div class="wrapper" in:fade={{ duration: 200 }}>
-  <div class="container">
-    <div class="info-box">
-      <nav class="tabs-navigation">
-        {#each tabs as tab}
-          <button 
-            class="tab-button" 
-            class:active={activeTab === tab}
-            on:click={() => { activeTab = tab; }}
-          >
-            {tab}
-          </button>
-        {/each}
-      </nav>
-      <div class="info-content" on:scroll={handleScroll}>
-        {#if loading && initialLoad}
-          <div class="loading">
-            <div class="spinner"></div>
-          </div>
-        {:else if error && showError && !loading}
-          <div class="error" transition:fade>{error}</div>
-        {:else if activities.length === 0}
-          <p>No activities found</p>
-        {:else}
-          <div class="documents-list">
-            {#if activeTab === 'Settlement'}
-              {#each getUniqueTransactionHashes() as hash}
-                {@const events = activities.filter(a => a.id && a.id.startsWith(hash))}
-                {@const hasSettlement = events.some(e => e.type === 'settleDeposit' || e.type === 'settleRedeem')}
-                {@const netAssets = getNetAssetsForHash(hash)}
-                {#if hasSettlement || events.some(e => e.type === 'totalAssetsUpdated')}
-                  <div class="document-item">
-                    <div class="document-header">
-                      <div class="left-content">
-                        <p class="nav-info">
-                          <span class="nav-label">From: </span>
-                          <a href={getAddressExplorerUrl(currentVault?.administrator)} class="hash-link" target="_blank" rel="noopener noreferrer">
-                            {formatAddress(currentVault?.administrator)}
-                            <svg class="external-link-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                              <path d="M15 3h6v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                              <path d="M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                          </a>
-                        </p>
-                        <p class="nav-info">
-                          <span class="nav-label">Net Assets: </span>
-                          <span class="nav-value">
-                            {#if netAssets.netShares > 0}
-                              +{netAssets.netShares.toLocaleString(undefined, { maximumFractionDigits: 2 })} {currentVault?.ticker}
-                            {:else if netAssets.netShares < 0}
-                              {netAssets.netShares.toLocaleString(undefined, { maximumFractionDigits: 2 })} {currentVault?.ticker}
-                            {:else}
-                              0 {currentVault?.ticker}
-                            {/if}
-                          </span>
-                        </p>
-                        <p class="nav-info">
-                          <span class="nav-label">Time: </span>
-                          {#if events[0]?.id}
-                            <a href={getActivityLinkFromId(events[0].id)} class="hash-link" target="_blank" rel="noopener noreferrer">
-                              {getTimeAgo(events[0].createdAt)}
-                              <svg class="external-link-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                <path d="M15 3h6v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                <path d="M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                              </svg>
-                            </a>
-                          {:else}
-                            <span class="nav-value">N/A</span>
-                          {/if}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                {/if}
-              {/each}
-            {:else}
-              {#each activities.filter(a => a.createdAt && !a.type.includes('settle')) as activity}
+<div class="chart-box" in:fade={{ duration: 200 }}>
+  <div class="header">
+    <h4 class="title-label">
+      Activities
+    </h4>
+  </div>
+  <div class="info-box">
+    <nav class="tabs-navigation">
+      {#each tabs as tab}
+        <button 
+          class="tab-button" 
+          class:active={activeTab === tab}
+          on:click={() => { activeTab = tab; }}
+        >
+          {tab}
+        </button>
+      {/each}
+    </nav>
+    <div class="info-content" on:scroll={handleScroll}>
+      {#if loading && initialLoad}
+        <div class="loading">
+          <div class="spinner"></div>
+        </div>
+      {:else if error && showError && !loading}
+        <div class="error" transition:fade>{error}</div>
+      {:else if activities.length === 0}
+        <p>No activities found</p>
+      {:else}
+        <div class="documents-list">
+          {#if activeTab === 'Settlement'}
+            {#each getUniqueTransactionHashes() as hash}
+              {@const events = activities.filter(a => a.id && a.id.startsWith(hash))}
+              {@const hasSettlement = events.some(e => e.type === 'settleDeposit' || e.type === 'settleRedeem')}
+              {@const netAssets = getNetAssetsForHash(hash)}
+              {#if hasSettlement || events.some(e => e.type === 'totalAssetsUpdated')}
                 <div class="document-item">
                   <div class="document-header">
                     <div class="left-content">
                       <p class="nav-info">
                         <span class="nav-label">From: </span>
-                        {#if activeTab === 'Valuation'}
-                          <a href={getAddressExplorerUrl(currentVault?.priceOracle)} class="hash-link" target="_blank" rel="noopener noreferrer">
-                            {formatAddress(currentVault?.priceOracle)}
-                            <svg class="external-link-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                              <path d="M15 3h6v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                              <path d="M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                          </a>
-                        {:else}
-                          <a href={getAddressExplorerUrl(activity.owner)} class="hash-link" target="_blank" rel="noopener noreferrer">
-                            {formatAddress(activity.owner)}
-                            <svg class="external-link-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                              <path d="M15 3h6v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                              <path d="M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                          </a>
-                        {/if}
+                        <a href={getAddressExplorerUrl(currentVault?.administrator)} class="hash-link" target="_blank" rel="noopener noreferrer">
+                          {formatAddress(currentVault?.administrator)}
+                          <svg class="external-link-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M15 3h6v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                          </svg>
+                        </a>
                       </p>
                       <p class="nav-info">
-                        <span class="nav-label">
-                          {#if activeTab === 'Settlement'}
-                            Net Assets: 
-                          {:else}
-                            Amount: 
-                          {/if}
-                        </span>
+                        <span class="nav-label">Net Assets: </span>
                         <span class="nav-value">
-                          {#if activeTab === 'Withdraw'}
-                            {formatAmountByToken(activity.shares, currentVault?.underlyingToken)} {currentVault?.ticker}
-                          {:else if activeTab === 'Valuation'}
-                            {@const val = formatAmountByToken(activity.totalAssets, currentVault?.underlyingToken)}
-                            {parseFloat(val).toFixed(2)} {currentVault?.underlyingToken}
+                          {#if netAssets.netShares > 0}
+                            +{netAssets.netShares.toLocaleString(undefined, { maximumFractionDigits: 2 })} {currentVault?.ticker}
+                          {:else if netAssets.netShares < 0}
+                            {netAssets.netShares.toLocaleString(undefined, { maximumFractionDigits: 2 })} {currentVault?.ticker}
                           {:else}
-                            {formatAmountByToken(activity.assets, currentVault?.underlyingToken)} {currentVault?.underlyingToken}
+                            0 {currentVault?.ticker}
                           {/if}
                         </span>
                       </p>
                       <p class="nav-info">
                         <span class="nav-label">Time: </span>
-                        {#if activity.id}
-                          <a href={getActivityLinkFromId(activity.id)} class="hash-link" target="_blank" rel="noopener noreferrer">
-                            {getTimeAgo(activity.createdAt)}
+                        {#if events[0]?.id}
+                          <a href={getActivityLinkFromId(events[0].id)} class="hash-link" target="_blank" rel="noopener noreferrer">
+                            {getTimeAgo(events[0].createdAt)}
                             <svg class="external-link-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                               <path d="M15 3h6v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -432,31 +370,96 @@
                           <span class="nav-value">N/A</span>
                         {/if}
                       </p>
-                      {#if activeTab !== 'Valuation' && activeTab !== 'Settlement'}
-                        <p class="nav-info">
-                          <span class="nav-label">Status: </span>
-                          <span class="nav-value status">{isActivitySettled(activity) ? 'Settled' : 'Pending'}</span>
-                        </p>
-                      {/if}
                     </div>
                   </div>
                 </div>
-              {/each}
-            {/if}
-            {#if loading && !initialLoad}
-              <div class="loading-more">
-                <div class="spinner small"></div>
+              {/if}
+            {/each}
+          {:else}
+            {#each activities.filter(a => a.createdAt && !a.type.includes('settle')) as activity}
+              <div class="document-item">
+                <div class="document-header">
+                  <div class="left-content">
+                    <p class="nav-info">
+                      <span class="nav-label">From: </span>
+                      {#if activeTab === 'Valuation'}
+                        <a href={getAddressExplorerUrl(currentVault?.priceOracle)} class="hash-link" target="_blank" rel="noopener noreferrer">
+                          {formatAddress(currentVault?.priceOracle)}
+                          <svg class="external-link-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M15 3h6v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                          </svg>
+                        </a>
+                      {:else}
+                        <a href={getAddressExplorerUrl(activity.owner)} class="hash-link" target="_blank" rel="noopener noreferrer">
+                          {formatAddress(activity.owner)}
+                          <svg class="external-link-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M15 3h6v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                          </svg>
+                        </a>
+                      {/if}
+                    </p>
+                    <p class="nav-info">
+                      <span class="nav-label">
+                        {#if activeTab === 'Settlement'}
+                          Net Assets: 
+                        {:else}
+                          Amount: 
+                        {/if}
+                      </span>
+                      <span class="nav-value">
+                        {#if activeTab === 'Withdraw'}
+                          {formatAmountByToken(activity.shares, currentVault?.underlyingToken)} {currentVault?.ticker}
+                        {:else if activeTab === 'Valuation'}
+                          {@const val = formatAmountByToken(activity.totalAssets, currentVault?.underlyingToken)}
+                          {parseFloat(val).toFixed(2)} {currentVault?.underlyingToken}
+                        {:else}
+                          {formatAmountByToken(activity.assets, currentVault?.underlyingToken)} {currentVault?.underlyingToken}
+                        {/if}
+                      </span>
+                    </p>
+                    <p class="nav-info">
+                      <span class="nav-label">Time: </span>
+                      {#if activity.id}
+                        <a href={getActivityLinkFromId(activity.id)} class="hash-link" target="_blank" rel="noopener noreferrer">
+                          {getTimeAgo(activity.createdAt)}
+                          <svg class="external-link-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M15 3h6v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                          </svg>
+                        </a>
+                      {:else}
+                        <span class="nav-value">N/A</span>
+                      {/if}
+                    </p>
+                    {#if activeTab !== 'Valuation' && activeTab !== 'Settlement'}
+                      <p class="nav-info">
+                        <span class="nav-label">Status: </span>
+                        <span class="nav-value status">{isActivitySettled(activity) ? 'Settled' : 'Pending'}</span>
+                      </p>
+                    {/if}
+                  </div>
+                </div>
               </div>
-            {/if}
-          </div>
-        {/if}
-      </div>
+            {/each}
+          {/if}
+          {#if loading && !initialLoad}
+            <div class="loading-more">
+              <div class="spinner small"></div>
+            </div>
+          {/if}
+        </div>
+      {/if}
     </div>
   </div>
 </div>
 
 <style>
-  .wrapper {
+  .chart-box {
     width: 100%;
     background: rgba(10, 34, 58, 0.503);
     border-radius: 0.75rem;
@@ -464,18 +467,27 @@
     border: 1px solid rgba(255, 255, 255, 0.05);
     padding: 0;
     position: relative;
-    height: calc(4 * (75px + 3rem + 0.5rem) + 4.5rem);
+    height: calc(6 * (75px + 3rem + 0.5rem) + 4.5rem);
     display: flex;
     flex-direction: column;
   }
-  .container {
-    width: 100%;
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    padding: 1.5rem 2rem 0;
+  }
+
+  .title-label {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 1rem;
+    font-weight: 500;
     margin: 0;
-    padding: 0;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
+    letter-spacing: 0.02em;
   }
+
   .info-box {
     width: 100%;
     background: transparent;
@@ -488,26 +500,12 @@
     height: 100%;
     overflow: hidden;
   }
-  .info-header {
-    margin-bottom: 1.5rem;
-    width: 100%;
-  }
-  .info-header h3 {
-    color: #ffffff;
-    margin: 0;
-    font-size: 1.5rem;
-    font-weight: 500;
-    background: linear-gradient(135deg, #fff 0%, var(--color-accent) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    text-fill-color: transparent;
-  }
+
   .tabs-navigation {
     display: flex;
     gap: 0.5rem;
     margin: 0;
-    padding: 1.5rem 2rem 1rem 2rem;
+    padding: 1rem 2rem;
     width: 100%;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     background: transparent;
@@ -515,6 +513,7 @@
     top: 0;
     z-index: 1;
   }
+
   .tab-button {
     background: none;
     border: none;
@@ -529,14 +528,17 @@
     text-align: center;
     white-space: nowrap;
   }
+
   .tab-button:hover {
     color: rgba(255, 255, 255, 0.8);
     background: rgba(255, 255, 255, 0.05);
   }
+
   .tab-button.active {
     color: #4DA8FF;
     background: rgba(77, 168, 255, 0.1);
   }
+
   .info-content {
     color: #94a3b8;
     flex: 1 1 0%;
@@ -544,25 +546,31 @@
     padding: 1.5rem 2rem;
     width: 100%;
   }
+
   .info-content::-webkit-scrollbar {
     width: 6px;
   }
+
   .info-content::-webkit-scrollbar-track {
     background: rgba(255, 255, 255, 0.05);
     border-radius: 3px;
   }
+
   .info-content::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.1);
     border-radius: 3px;
   }
+
   .info-content::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.15);
   }
+
   .documents-list {
     display: flex;
     flex-direction: column;
     gap: 1rem;
   }
+
   .document-item {
     background: rgba(255, 255, 255, 0.03);
     border-radius: 0.75rem;
@@ -572,30 +580,36 @@
     transition: all 0.2s ease;
     margin-bottom: 0.5rem;
   }
+
   .document-item:last-child {
     margin-bottom: 0;
   }
+
   .document-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     height: 100%;
   }
+
   .left-content {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
   }
+
   .nav-info {
     margin: 0;
     font-size: 0.875rem;
     color: #94a3b8;
   }
+
   .nav-value {
     font-weight: 600;
     color: rgba(255, 255, 255, 0.8);
     font-family: inherit;
   }
+
   .hash-link {
     color: #4DA8FF;
     text-decoration: none;
@@ -606,9 +620,11 @@
     align-items: center;
     gap: 0.3em;
   }
+
   .hash-link:hover {
     opacity: 0.8;
   }
+
   .external-link-icon {
     width: 1em;
     height: 1em;
@@ -616,16 +632,7 @@
     margin-left: 0.2em;
     color: inherit;
   }
-  .time-ago {
-    font-size: 0.875rem;
-    color: #4DA8FF;
-    text-decoration: none;
-    transition: color 0.2s;
-    align-self: center;
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-  }
+
   .loading {
     text-align: center;
     padding: 2rem;
@@ -633,11 +640,13 @@
     justify-content: center;
     align-items: center;
   }
+
   .error {
     color: #ef4444;
     text-align: center;
     padding: 1rem;
   }
+
   .loading-more {
     text-align: center;
     padding: 0.5rem;
@@ -647,6 +656,7 @@
     justify-content: center;
     align-items: center;
   }
+
   .spinner {
     width: 40px;
     height: 40px;
@@ -655,98 +665,70 @@
     border-top-color: #4DA8FF;
     animation: spin 1s ease-in-out infinite;
   }
+
   .spinner.small {
     width: 20px;
     height: 20px;
     border-width: 2px;
   }
+
   @keyframes spin {
     to {
       transform: rotate(360deg);
     }
   }
+
   @media (max-width: 768px) {
-    .wrapper {
+    .chart-box {
       padding-top: 1.5rem;
     }
-    .container {
-      padding-inline: 1rem;
+
+    .chart-header {
+      padding: 1rem;
     }
-    .info-box {
-      padding: 1.5rem;
-    }
-    .info-header h3 {
+
+    .chart-header h3 {
       font-size: 1.25rem;
     }
+
     .document-item {
       padding: 1rem;
       text-align: center;
       background: rgba(255, 255, 255, 0.03);
     }
+
     .document-header {
       flex-direction: column;
       gap: 0.5rem;
     }
+
     .left-content {
       align-items: center;
       gap: 0.4rem;
       width: 100%;
     }
+
     .nav-info {
       font-size: 1rem;
     }
-    .nav-info::before {
-      content: 'NAV: ';
-      display: none;
-    }
+
     .nav-value {
       font-size: 1.1rem;
       display: block;
       margin-top: 0.25rem;
     }
-    .time-ago {
-      font-size: 0.8rem;
-      padding: 0.25rem;
-      width: 100%;
-      justify-content: center;
-      margin-top: 0.25rem;
-      opacity: 0.8;
-    }
-    .time-ago:hover {
-      opacity: 1;
-    }
+
     .nav-label {
       display: none;
     }
-    .info-header {
-      display: flex;
-      justify-content: center;
-      margin-bottom: 1.5rem;
-    }
-    .info-header h3 {
-      font-size: 1.25rem;
-      text-align: center;
-    }
   }
+
   @media (max-width: 480px) {
-    .wrapper {
+    .chart-box {
       padding-top: 1rem;
     }
-    .container {
-      padding-inline: 0.75rem;
-    }
   }
-  .type-badge {
-    background: #4DA8FF;
-    color: #fff;
-    border-radius: 0.5rem;
-    padding: 0.25rem 0.75rem;
-    font-size: 0.95em;
-    font-weight: 600;
-    margin-left: 1rem;
-    align-self: flex-start;
-    letter-spacing: 0.03em;
-  }
+
   .status {
     font-weight: 500;
     color: rgba(255, 255, 255, 0.8);
