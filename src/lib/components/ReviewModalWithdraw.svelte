@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from 'svelte';
   import { latestPps } from '$lib/stores/latest_pps';
+  import { browser } from '$app/environment';
   const dispatch = createEventDispatcher();
 
   export let open = false;
@@ -26,10 +27,30 @@
 
   let currentLatestPps = safeNumber(initialLatestPps);
 
-  // Souscription au store latestPps
-  $: if ($latestPps[vaultId]?.data?.pps) {
-    currentLatestPps = safeNumber($latestPps[vaultId].data.pps);
+  // Fonction pour récupérer le dernier PPS
+  async function fetchLatestPps() {
+    if (!browser || !vaultId) return;
+    
+    try {
+      const response = await fetch(`/api/vaults/${vaultId}/metrics/pps?latest=true`);
+      if (!response.ok) {
+        console.error('Error fetching latest PPS:', response.status);
+        return;
+      }
+      const data = await response.json();
+      if (data?.latestPps?.pps) {
+        currentLatestPps = safeNumber(data.latestPps.pps);
+      }
+    } catch (error) {
+      console.error('Error fetching latest PPS:', error);
+    }
   }
+
+  onMount(() => {
+    if (browser) {
+      fetchLatestPps();
+    }
+  });
 
   function truncateTo2Decimals(value: number) {
     return Math.trunc(value * 100) / 100;
@@ -115,7 +136,7 @@
       </div>
       <div class="row">
         <span class="label">Exchange rate</span>
-        <span class="value">1 <span class="gradient-text">{tokenSymbol}</span> ≈ {cropTo4Decimals(currentLatestPps).toFixed(4)} {underlyingToken}</span>
+        <span class="value">1 <span class="gradient-text">{tokenSymbol}</span> = {cropTo4Decimals(currentLatestPps).toFixed(4)} {underlyingToken}</span>
       </div>
     </div>
     <div class="modal-footer">

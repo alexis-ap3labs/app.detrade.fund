@@ -6,6 +6,8 @@
   import { prices } from '$lib/stores/prices';
   import { latestPps } from '$lib/stores/latest_pps';
   import { fade } from 'svelte/transition';
+  import { onMount } from 'svelte';
+  import { browser } from '$app/environment';
   const dispatch = createEventDispatcher();
 
   export let open = false;
@@ -30,6 +32,31 @@
   let unsubscribe: () => void;
   let currentLatestPps = Number(initialLatestPps);
 
+  // Fonction pour récupérer le dernier PPS
+  async function fetchLatestPps() {
+    if (!browser || !vaultId) return;
+    
+    try {
+      const response = await fetch(`/api/vaults/${vaultId}/metrics/pps?latest=true`);
+      if (!response.ok) {
+        console.error('Error fetching latest PPS:', response.status);
+        return;
+      }
+      const data = await response.json();
+      if (data?.latestPps?.pps) {
+        currentLatestPps = Number(data.latestPps.pps);
+      }
+    } catch (error) {
+      console.error('Error fetching latest PPS:', error);
+    }
+  }
+
+  onMount(() => {
+    if (browser) {
+      fetchLatestPps();
+    }
+  });
+
   // Récupérer le ticker du vault
   $: {
     const vault = ALL_VAULTS.find(v => v.id === vaultId);
@@ -46,14 +73,6 @@
       underlyingPrice = 0;
     }
   });
-
-  // Souscription au store latestPps
-  $: {
-    const latest = $latestPps[vaultId];
-    if (latest && latest.data && typeof latest.data.pps !== 'undefined' && latest.data.pps !== null) {
-      currentLatestPps = Number(latest.data.pps);
-    }
-  }
 
   function truncateTo2Decimals(value: number) {
     if (vaultId === 'detrade-core-eth' && value < 1) {
@@ -75,7 +94,7 @@
   // Calcul de la valeur en USD
   $: usdValue = truncateTo2Decimals(inputUnderlying * underlyingPrice);
 
-  // Calcul de l'exchange rate (1 / latestPps), crop à 4 décimales
+  // Calcul de l'exchange rate (1/PPS), crop à 4 décimales
   $: exchangeRate = (() => {
     const ppsValue = currentLatestPps;
     if (isNaN(ppsValue) || ppsValue <= 0) {
@@ -226,7 +245,7 @@
       </div>
       <div class="row">
         <span class="label">Exchange rate</span>
-        <span class="value">1 {underlyingToken} ≈ {exchangeRate} <span class="gradient-text">{vaultTicker}</span></span>
+        <span class="value">1 {underlyingToken} = {exchangeRate} <span class="gradient-text">{vaultTicker}</span></span>
       </div>
     </div>
     <div class="modal-footer">
