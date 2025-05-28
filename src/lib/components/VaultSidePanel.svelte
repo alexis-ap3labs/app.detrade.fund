@@ -49,6 +49,9 @@
   let isClaimableDepositLoading = false;
   let hasPendingDeposit = false;
   let pendingAmount = '0';
+  let currentAllowance = '0';
+  let isAllowanceLoading = false;
+  let needsApprove = false;
 
   // Ajout d'une variable pour stocker les requestIds en pending
   let pendingRequestIds: string[] = [];
@@ -1146,7 +1149,7 @@
 
   // Fonction pour vérifier si le montant est valide
   $: isAmountValid = depositAmount && Number(depositAmount) > 0 && 
-    (activeTab === 'deposit' ? !insufficientBalance : BigInt(parseWei(depositAmount)) <= BigInt(maxWithdrawShares));
+    (activeTab === 'deposit' ? (!insufficientBalance && !needsApprove) : BigInt(parseWei(depositAmount)) <= BigInt(maxWithdrawShares));
 
   // Mise à jour des calculs pour les projections
   $: withdrawBeforeUnderlying = Number(formattedTotalVaultShares) * Number(latestPps);
@@ -1337,6 +1340,79 @@
   // Earnings projetés sur la base des parts uniquement
   $: currentEarningsYear = totalPartsUnderlying * (aprValue / 100);
   $: currentEarningsMonth = currentEarningsYear / 12;
+
+  // Fonction pour vérifier l'allowance
+  async function checkAllowance() {
+    if (!vault?.vaultContract || !$wallet.address || !underlyingTokenAddress || vaultId === 'detrade-core-eth') {
+      currentAllowance = '0';
+      isAllowanceLoading = false;
+      needsApprove = false;
+      return;
+    }
+
+    try {
+      isAllowanceLoading = true;
+      const allowance = await readContract(config, {
+        address: underlyingTokenAddress as `0x${string}`,
+        abi: erc20Abi,
+        functionName: 'allowance',
+        args: [$wallet.address as `0x${string}`, vault.vaultContract as `0x${string}`]
+      });
+
+      currentAllowance = formatUnits(allowance, vault.underlyingTokenDecimals);
+      console.log('[checkAllowance] Current allowance:', currentAllowance);
+
+      // Vérifier si l'allowance est suffisante pour le montant à déposer + 1 USDC de marge
+      const requiredAllowance = Number(depositAmount) + 1;
+      needsApprove = Number(currentAllowance) < requiredAllowance;
+      console.log('[checkAllowance] Needs approve:', needsApprove, 'Required:', requiredAllowance);
+    } catch (error) {
+      console.error('[checkAllowance] Error:', error);
+      currentAllowance = '0';
+      needsApprove = true;
+    } finally {
+      isAllowanceLoading = false;
+    }
+  }
+
+  // Fonction pour faire l'approve
+  async function handleApprove() {
+    if (!vault?.vaultContract || !$wallet.address || !underlyingTokenAddress || vaultId === 'detrade-core-eth') {
+      return;
+    }
+
+    try {
+      // Calculer le montant à approuver (montant à déposer + 1 USDC de marge)
+      const amountToApprove = (Number(depositAmount) + 1) * Math.pow(10, vault.underlyingTokenDecimals);
+      
+      const hash = await writeContract(config, {
+        address: underlyingTokenAddress as `0x${string}`,
+        abi: erc20Abi,
+        functionName: 'approve',
+        args: [vault.vaultContract as `0x${string}`, BigInt(amountToApprove)]
+      });
+
+      transactions.setPending(hash);
+      const publicClient = getPublicClient(config);
+      const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
+      transactions.setComplete();
+
+      // Recheck allowance after approve
+      await checkAllowance();
+    } catch (error) {
+      console.error('[handleApprove] Error:', error);
+      transactions.reset();
+    }
+  }
+
+  // Mettre à jour l'allowance quand le montant change
+  $: if ($wallet.address && depositAmount && underlyingTokenAddress && vault?.vaultContract && vaultId !== 'detrade-core-eth') {
+    debounce('allowance', checkAllowance);
+  }
+
+  $: disabled = activeTab === 'deposit'
+    ? (insufficientBalance || isAllowanceLoading)
+    : Number(depositAmount) > Number(formattedMaxWithdrawShares);
 </script>
 
 <div class="side-panel">
@@ -1390,15 +1466,19 @@
     </div>
     {#if $wallet.address && depositAmount && Number(depositAmount) > 0}
       <button
-        class="connect-wallet {activeTab === 'withdraw' ? 'withdraw' : ''} {(activeTab === 'deposit' ? insufficientBalance : Number(depositAmount) > formattedMaxWithdrawShares) ? 'disabled' : ''}"
-        disabled={activeTab === 'deposit' ? insufficientBalance : Number(depositAmount) > formattedMaxWithdrawShares}
-        on:click={handleDepositClick}
+        class="connect-wallet {activeTab === 'withdraw' ? 'withdraw' : ''} {disabled ? 'disabled' : ''}"
+        disabled={activeTab === 'deposit'
+          ? (insufficientBalance || isAllowanceLoading)
+          : Number(depositAmount) > Number(formattedMaxWithdrawShares)}
+        on:click={activeTab === 'deposit' && needsApprove ? handleApprove : handleDepositClick}
         style="margin-top: 1rem; margin-bottom: 0.5rem;"
-        >
+      >
         {#if activeTab === 'deposit' && insufficientBalance}
           Insufficient {underlyingToken} Balance
-        {:else if activeTab === 'withdraw' && Number(depositAmount) > formattedMaxWithdrawShares}
+        {:else if activeTab === 'withdraw' && Number(depositAmount) > Number(formattedMaxWithdrawShares)}
           Insufficient {vault?.ticker} Balance
+        {:else if activeTab === 'deposit' && needsApprove}
+          Approve {underlyingToken}
         {:else}
           {activeTab === 'deposit' ? 'Deposit' : 'Withdraw'}
         {/if}
