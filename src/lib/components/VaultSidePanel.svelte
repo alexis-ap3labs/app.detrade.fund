@@ -1787,7 +1787,7 @@
   border-radius: 0.75rem;
   box-shadow: 0 0 0 rgba(25, 62, 182, 0.264);
   padding: 2rem 1.25rem;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.1rem;
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.05);
 }

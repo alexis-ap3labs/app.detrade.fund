@@ -164,6 +164,26 @@
   }
   .detail-box {
     padding: 1.2rem 1rem;
+    align-items: center;
+    text-align: center;
+  }
+  .detail-label {
+    text-align: center;
+    width: 100%;
+  }
+  .detail-value {
+    text-align: center;
+    width: 100%;
+  }
+  .detail-link {
+    justify-content: center;
+  }
+  .header {
+    justify-content: center;
+  }
+  .title-label {
+    text-align: center;
+    width: 100%;
   }
 }
 </style> 

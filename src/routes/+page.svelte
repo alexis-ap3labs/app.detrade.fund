@@ -96,6 +96,23 @@
     height: 100%;
   }
 
+  @media (max-width: 640px) {
+    .main-content {
+      height: auto;
+      overflow: visible;
+      min-height: 100vh;
+    }
+
+    .container {
+      padding-top: 2rem;
+      height: auto;
+    }
+
+    .vaults-list {
+      overflow: visible;
+    }
+  }
+
   .fixed-header {
     position: relative;
     z-index: 2;

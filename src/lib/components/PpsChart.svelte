@@ -326,7 +326,7 @@
           color: 'rgba(255, 255, 255, 0.5)',
           maxRotation: 0,
           minRotation: 0,
-          maxTicksLimit: timeframe === '1m' ? 7 : timeframe === '3m' ? 20 : 6,  // Augmenté à 20 pour le mode 3 mois
+          maxTicksLimit: timeframe === '1m' ? 7 : timeframe === '3m' ? 20 : 6,
           autoSkip: false,
           padding: 10,
           font: {
@@ -344,7 +344,8 @@
     },
     layout: {
       padding: {
-        right: 1,
+        left: 0,
+        right: 0,
         bottom: 20
       }
     }
@@ -539,6 +540,9 @@
   flex: 1;
   min-width: 0;
   position: relative;
+  margin-left: -1.1rem;
+  margin-right: -1.1rem;
+  width: calc(100% + 1.5rem);
 }
 
 .header {
@@ -664,5 +668,99 @@
   align-items: flex-start;
   border: 1px solid rgba(255, 255, 255, 0.05);
   /* Ajoute margin-top: 3rem; sur le premier chart si tu veux l'espacement du header */
+}
+
+@media (max-width: 640px) {
+  .pps-chart-container {
+    height: 380px;
+    margin-top: 0;
+    align-items: center;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    width: 100%;
+    text-align: center;
+  }
+
+  .pps-info {
+    width: 100%;
+    align-items: center;
+  }
+
+  .pps-label {
+    font-size: 0.9rem;
+    text-align: center;
+  }
+
+  .chart-title {
+    font-size: 1.1rem;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .conversion-svg {
+    margin: 0 0.25em;
+  }
+
+  .conversion-svg svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .timeframe-selector {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+
+  .dropdown-button {
+    width: 100%;
+    max-width: 200px;
+    justify-content: center;
+    padding: 0.75rem 1rem;
+    gap: 0.75rem;
+  }
+
+  .dropdown-menu {
+    width: 100%;
+    max-width: 200px;
+    right: 50%;
+    transform: translateX(50%);
+  }
+
+  .dropdown-menu button {
+    text-align: center;
+    justify-content: center;
+    padding: 0.75rem;
+  }
+
+  .chart-wrapper {
+    margin: 0;
+    width: 100%;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  .chart-box {
+    padding: 0;
+  }
+
+  .loading-container {
+    height: 200px;
+    text-align: center;
+  }
+
+  .loading-spinner {
+    width: 24px;
+    height: 24px;
+  }
 }
 </style> 

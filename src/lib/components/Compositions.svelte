@@ -207,6 +207,8 @@
   font-weight: 500;
   margin: 0;
   letter-spacing: 0.02em;
+  text-align: left;
+  width: 100%;
 }
 
 .header {
@@ -322,15 +324,74 @@
 }
 
 @media (max-width: 900px) {
-  .composition-row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.25rem;
-    padding: 1rem 0.75rem;
+  .compositions-content {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 2rem;
+    width: 100%;
   }
-  .asset-name, .asset-percentage, .asset-value {
-    flex: unset;
-    text-align: left;
+  .title-label {
+    text-align: center;
+  }
+  .donut-box {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0;
+    margin: 0 auto 0 auto;
+    box-sizing: border-box;
+    padding: 3rem 1.5rem 2rem 1.5rem !important;
+    height: auto !important;
+    min-height: unset !important;
+    overflow: visible !important;
+  }
+  .legend-box {
+    width: 100% !important;
+    min-width: 0;
+    margin: 0 auto 0 auto;
+    box-sizing: border-box;
+    padding: 2rem 1.5rem 2rem 1.5rem !important;
+    height: auto !important;
+    min-height: unset !important;
+    overflow: visible !important;
+  }
+  .compositions-outer, .compositions-content {
+    height: auto !important;
+    min-height: unset !important;
+    overflow: visible !important;
+  }
+  .donut-center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 2rem 0 2.5rem 0;
+  }
+  .donut-chart {
+    width: 260px;
+    height: 260px;
+    max-width: 100%;
+    margin: 0 auto;
+  }
+  .legend-center {
+    padding: 1.5rem 0 0 0;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+  .legend {
+    gap: 1.2em;
+    width: 100%;
+    max-width: 100%;
+  }
+  .legend-row {
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+  }
+  .compositions-strategy-text {
+    text-align: center !important;
+    margin-left: auto;
+    margin-right: auto;
+    display: block;
   }
 }
 
@@ -341,8 +402,8 @@
   align-items: stretch;
   justify-content: center;
   width: 100%;
-  height: 100%;
 }
+
 .donut-box, .legend-box {
   background: rgba(10, 34, 58, 0.503);
   border: 1px solid rgba(255, 255, 255, 0.05);

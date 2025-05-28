@@ -13,7 +13,6 @@
     let isHeaderVisible = true;
     let lastScrollY = 0;
     let errorTimeout: NodeJS.Timeout;
-    let isMobileMenuOpen = false;
   
     if (typeof window !== 'undefined') {
       const handleScroll = () => {
@@ -49,15 +48,6 @@
     });
   
     $: error = $wallet.error;
-
-    function scrollToSection(id: string) {
-      isMobileMenuOpen = false;
-      const section = document.getElementById(id);
-      if (section) {
-        section.scrollIntoView({ behavior: 'smooth' });
-        history.replaceState(null, '', `#${id}`);
-      }
-    }
 </script>
   
 {#if isAppRoute}
@@ -86,24 +76,12 @@
       {/if}
     </div>
     <div class="header-right">
-      <button class="hamburger" on:click={() => isMobileMenuOpen = !isMobileMenuOpen} aria-label="Menu" aria-expanded={isMobileMenuOpen}>
-        <span class="bar"></span>
-        <span class="bar"></span>
-        <span class="bar"></span>
-      </button>
       <div class="wallet-section">
         <WalletConnect />
       </div>
     </div>
   </div>
 </header>
-{/if}
-  
-{#if isMobileMenuOpen}
-  <nav class="mobile-menu" transition:fly={{ y: -40, duration: 600, delay: 900, easing: quintOut }}>
-    <a class="nav-link mobile" on:click|preventDefault={() => scrollToSection('vaults')}>Vaults</a>
-    <!-- autres liens ici si besoin -->
-  </nav>
 {/if}
   
 <style>
@@ -185,21 +163,50 @@
 
     @media (max-width: 640px) {
       header {
-        padding: 0.75rem 0;
+        padding: 0.5rem 0;
         background: rgba(255, 255, 255, 0.08);
+        margin-bottom: 1.5rem;
       }
       
       .header-content {
         height: 40px;
         padding: 0 1rem;
+        gap: 0.5rem;
       }
 
       .logo {
-        height: 28px;
+        height: 24px;
       }
 
       .nav-link.desktop {
         display: none;
+      }
+
+      .wallet-section {
+        margin-left: auto;
+      }
+
+      .connect-btn {
+        font-size: 0.875rem;
+        padding: 0.5rem 1rem;
+        min-width: 120px;
+        width: auto;
+        height: 36px;
+      }
+
+      .header-right {
+        gap: 0.5rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .header-content {
+        padding: 0 0.75rem;
+      }
+
+      .connect-btn {
+        min-width: 110px;
+        padding: 0.5rem 0.75rem;
       }
     }
   
@@ -315,60 +322,11 @@
     }
 
     /* Menu mobile */
-    .hamburger {
-      display: none;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      width: 32px;
-      height: 32px;
-      background: none;
-      border: none;
-      cursor: pointer;
-      z-index: 120;
-      margin-left: 0.5rem;
-    }
-
-    .hamburger .bar {
-      width: 22px;
-      height: 3px;
-      background: #b4c6ef;
-      margin: 3px 0;
-      border-radius: 2px;
-      transition: all 0.3s;
-    }
-
-    @media (max-width: 640px) {
-      .hamburger {
-        display: flex;
-      }
-    }
-
-    .mobile-menu {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: rgba(13, 25, 42, 0.98);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 200;
-      gap: 2.5rem;
-    }
-
+    .hamburger,
+    .hamburger .bar,
+    .mobile-menu,
     .nav-link.mobile {
-      font-size: 1.5rem;
-      font-weight: 500;
-      color: #b4c6ef;
-      text-align: center;
-      transition: color 0.2s;
-    }
-
-    .nav-link.mobile:hover {
-      color: #fff;
+      display: none;
     }
 
     @media (min-width: 641px) {

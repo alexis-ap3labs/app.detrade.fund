@@ -80,6 +80,9 @@
           <div class="chart-box">
             <VaultHeader {vault} {network} />
           </div>
+          <div class="side-container mobile-only">
+            <VaultSidePanel vaultId={vaultId} />
+          </div>
           <div class="chart-box">
             <PpsChart {vaultId} underlyingToken={vault.underlyingToken} />
           </div>
@@ -97,7 +100,7 @@
           </div>
           <Activities {vaultId} />
         </div>
-        <div class="side-container">
+        <div class="side-container desktop-only">
           <VaultSidePanel vaultId={vaultId} />
         </div>
       </div>
@@ -150,6 +153,7 @@
     z-index: 1;
     justify-content: center;
     height: 100%;
+    overflow: hidden;
   }
 
   .vault-detail {
@@ -187,23 +191,12 @@
     padding: 4rem 2rem;
   }
 
-  .chart-box {
-    width: 100%;
-    background: rgba(10, 34, 58, 0.503);
-    border-radius: 0.75rem;
-    box-shadow: 0 0 0 rgba(25, 62, 182, 0.264);
-    padding: 2rem;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-  }
-
   .content-wrapper {
     display: flex;
     gap: 1rem;
     width: 100%;
     align-items: flex-start;
+    overflow: hidden;
   }
 
   .charts-container {
@@ -212,6 +205,7 @@
     gap: 1rem;
     margin-top: 3rem;
     width: 70%;
+    overflow: hidden;
   }
 
   .side-container {
@@ -224,11 +218,94 @@
     position: sticky;
     top: 2rem;
     z-index: 2;
+    overflow: hidden;
+  }
+
+  .mobile-only {
+    display: none;
+  }
+
+  .desktop-only {
+    display: block;
+  }
+
+  .chart-box {
+    width: 100%;
+    background: rgba(10, 34, 58, 0.503);
+    border-radius: 0.75rem;
+    box-shadow: 0 0 0 rgba(25, 62, 182, 0.264);
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    overflow: hidden;
   }
 
   @media (min-width: 1024px) {
     .charts-container {
       width: 70%;
+    }
+  }
+
+  @media (max-width: 1024px) {
+    .main-content {
+      height: auto;
+      overflow: visible;
+      min-height: 100vh;
+      padding-top: 4rem;
+    }
+
+    .container {
+      padding: 1rem;
+      height: auto;
+      overflow: visible;
+    }
+
+    .content-wrapper {
+      flex-direction: column;
+      overflow: visible;
+    }
+
+    .charts-container {
+      width: 100%;
+      margin-top: 0;
+      overflow: visible;
+    }
+
+    .side-container {
+      width: 100%;
+      position: relative;
+      top: 0;
+      margin-top: 0rem;
+      overflow: visible;
+    }
+
+    .mobile-only {
+      display: block;
+    }
+
+    .desktop-only {
+      display: none;
+    }
+
+    .chart-box {
+      padding: 1rem;
+      overflow: hidden;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .main-content {
+      padding-top: 4.5rem;
+    }
+
+    .container {
+      padding: 0.75rem;
+    }
+
+    .chart-box {
+      padding: 0.75rem;
     }
   }
 

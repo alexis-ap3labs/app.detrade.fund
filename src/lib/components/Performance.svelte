@@ -205,10 +205,19 @@
   gap: 1rem;
 }
 
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  width: 100%;
+}
+
 .title-info {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  width: 100%;
 }
 
 .title-label {
@@ -217,13 +226,8 @@
   font-weight: 500;
   margin: 0;
   letter-spacing: 0.02em;
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.5rem;
+  text-align: left;
+  width: 100%;
 }
 
 .apr-grid, .fees-grid {
@@ -374,6 +378,45 @@
   }
   .perf-box {
     padding: 1.2rem 1rem;
+  }
+
+  .header {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .title-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .title-label {
+    text-align: center;
+  }
+
+  .perf-label {
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .perf-value {
+    text-align: center;
+  }
+
+  .fee-link {
+    justify-content: center;
+  }
+
+  .info-tooltip {
+    margin-left: 0.25rem;
+  }
+
+  .tooltip-content {
+    left: 50%;
+    transform: translateX(-50%);
   }
 }
 </style> 

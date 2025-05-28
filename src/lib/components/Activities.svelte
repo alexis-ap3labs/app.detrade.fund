@@ -45,13 +45,36 @@
   let showError = false;
   const tabs = ['Deposit', 'Withdraw', 'Valuation', 'Settlement'] as const;
   type TabType = typeof tabs[number];
+  let activeTab: TabType = 'Deposit';
+
+  let documentsList: HTMLElement;
+
+  function scrollLeft() {
+    if (documentsList) {
+      documentsList.scrollBy({ left: -documentsList.offsetWidth, behavior: 'smooth' });
+    }
+  }
+
+  function scrollRight() {
+    if (documentsList) {
+      documentsList.scrollBy({ left: documentsList.offsetWidth, behavior: 'smooth' });
+    }
+  }
+
+  function isSettlementTab(tab: TabType): tab is 'Settlement' {
+    return tab === 'Settlement';
+  }
+
+  function isValuationOrSettlementTab(tab: TabType): boolean {
+    return tab === 'Valuation' || tab === 'Settlement';
+  }
+
   const typeMapping: Record<string, string> = {
     'Deposit': 'depositRequest',
     'Withdraw': 'redeemRequest',
     'Valuation': 'newTotalAssetsUpdated',
     'Settlement': 'settleDeposit,settleRedeem,totalAssetsUpdated'
   };
-  let activeTab: TabType = 'Deposit';
 
   const itemsPerPage = 10;
 
@@ -322,8 +345,8 @@
       {:else if activities.length === 0}
         <p>No activities found</p>
       {:else}
-        <div class="documents-list">
-          {#if activeTab === 'Settlement'}
+        <div class="documents-list" bind:this={documentsList}>
+          {#if isSettlementTab(activeTab)}
             {#each getUniqueTransactionHashes() as hash}
               {@const events = activities.filter(a => a.id && a.id.startsWith(hash))}
               {@const hasSettlement = events.some(e => e.type === 'settleDeposit' || e.type === 'settleRedeem')}
@@ -404,7 +427,7 @@
                     </p>
                     <p class="nav-info">
                       <span class="nav-label">
-                        {#if activeTab === 'Settlement'}
+                        {#if isSettlementTab(activeTab)}
                           Net Assets: 
                         {:else}
                           Amount: 
@@ -436,7 +459,7 @@
                         <span class="nav-value">N/A</span>
                       {/if}
                     </p>
-                    {#if activeTab !== 'Valuation' && activeTab !== 'Settlement'}
+                    {#if !isValuationOrSettlementTab(activeTab)}
                       <p class="nav-info">
                         <span class="nav-label">Status: </span>
                         <span class="nav-value status">{isActivitySettled(activity) ? 'Settled' : 'Pending'}</span>
@@ -453,6 +476,16 @@
             </div>
           {/if}
         </div>
+        <button class="scroll-button left" on:click={scrollLeft}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15 18l-6-6 6-6"/>
+          </svg>
+        </button>
+        <button class="scroll-button right" on:click={scrollRight}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 18l6-6-6-6"/>
+          </svg>
+        </button>
       {/if}
     </div>
   </div>
@@ -467,7 +500,7 @@
     border: 1px solid rgba(255, 255, 255, 0.05);
     padding: 0;
     position: relative;
-    height: calc(5.51 * (75px + 3rem + 0.5rem) + 4.5rem);
+    height: calc(4.3 * (75px + 3rem + 0.5rem) + 4.5rem); /* Augmenté pour 4 cartes sur desktop */
     display: flex;
     flex-direction: column;
   }
@@ -681,20 +714,38 @@
   @media (max-width: 768px) {
     .chart-box {
       padding-top: 1.5rem;
+      height: calc(3.8 * (75px + 3rem + 0.5rem) + 4.5rem); /* Ajusté pour 2 cartes sur mobile */
+      min-height: auto;
     }
 
-    .chart-header {
+    .tabs-navigation {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
       padding: 1rem;
     }
 
-    .chart-header h3 {
-      font-size: 1.25rem;
+    .tab-button {
+      padding: 0.5rem;
+      font-size: 0.9rem;
+    }
+
+    .info-content {
+      padding: 1rem;
+      height: calc(100% - 80px);
+      overflow-y: auto;
+    }
+
+    .documents-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
     }
 
     .document-item {
       padding: 1rem;
-      text-align: center;
-      background: rgba(10, 34, 58, 0.503);
+      min-height: auto;
+      margin-bottom: 0;
     }
 
     .document-header {
@@ -709,16 +760,23 @@
     }
 
     .nav-info {
-      font-size: 1rem;
+      font-size: 0.9rem;
+      text-align: center;
     }
 
     .nav-value {
-      font-size: 1.1rem;
+      font-size: 1rem;
       display: block;
       margin-top: 0.25rem;
     }
 
     .nav-label {
+      display: inline;
+      margin-right: 0.5rem;
+    }
+
+    /* Supprimer les styles des boutons de défilement */
+    .scroll-button {
       display: none;
     }
   }

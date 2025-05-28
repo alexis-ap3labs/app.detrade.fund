@@ -42,7 +42,7 @@
     wallet.updateChainId(chainId);
   }
 
-  function handleClickOutside(event: MouseEvent) {
+  function handleClickOutside(event: MouseEvent | TouchEvent) {
     const menu = document.querySelector('.network-logo-menu');
     if (menu && !menu.contains(event.target as Node)) {
       isNetworkMenuOpen = false;
@@ -59,6 +59,7 @@
     });
     if (typeof window !== 'undefined') {
       window.addEventListener('mousedown', handleClickOutside);
+      window.addEventListener('touchstart', handleClickOutside);
     }
   });
 
@@ -66,22 +67,26 @@
     unsubscribeAccount?.();
     if (typeof window !== 'undefined') {
       window.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('touchstart', handleClickOutside);
     }
   });
 
   function connectRabbyKit() {
     error = "";
-    rabbykit.open({
-      onConnect: () => {
-        updateAccount();
-      },
-      onConnectError: (e) => {
-        // Suppression du message d'erreur
-      },
-      onModalClosed: () => {
-        updateAccount();
-      }
-    });
+    try {
+      rabbykit.open({
+        onConnect: () => {
+          updateAccount();
+        },
+        onConnectError: (e) => {
+          console.error('Connection error:', e);
+          error = "Erreur de connexion au wallet. Veuillez réessayer.";
+        }
+      });
+    } catch (err) {
+      console.error('Modal error:', err);
+      error = "Impossible d'ouvrir le modal de connexion. Veuillez réessayer.";
+    }
   }
 
   async function disconnectWallet() {
@@ -91,6 +96,7 @@
       chainId = null;
       wallet.disconnect();
     } catch (e) {
+      console.error('Disconnect error:', e);
       error = "Erreur lors de la déconnexion";
     }
   }
@@ -101,6 +107,7 @@
         await switchChain(config, { chainId: targetChainId });
         isNetworkMenuOpen = false;
       } catch (e) {
+        console.error('Network switch error:', e);
         alert("Impossible de changer de réseau automatiquement. Merci de le faire dans votre wallet.");
       }
     }
@@ -561,11 +568,39 @@
 
 /* Version mobile */
 @media (max-width: 640px) {
+  .wallet-section {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .wallet-content {
+    gap: 0.5rem;
+  }
+
   .connect-btn {
-    font-size: 1rem;
-    padding: 0.5rem 1.25rem;
-    min-width: 140px;
-    width: 160px;
+    font-size: 0.875rem;
+    padding: 0.5rem 1rem;
+    min-width: 120px;
+    width: auto;
+    height: 36px;
+  }
+
+  .network-logo-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .network-logo-btn img {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .connect-btn {
+    min-width: 110px;
+    padding: 0.5rem 0.75rem;
   }
 }
 </style> 

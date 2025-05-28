@@ -292,10 +292,18 @@
             <NumberRoll 
               value={parseFloat(totalAssets)}
               suffix={` ${vault.underlyingToken}`}
-              format={n => n.toLocaleString(undefined, { 
-                minimumFractionDigits: vault.underlyingToken === 'WETH' ? 3 : 2, 
-                maximumFractionDigits: vault.underlyingToken === 'WETH' ? 3 : 2 
-              })}
+              format={n => {
+                if (n >= 1000) {
+                  return `${(n / 1000).toLocaleString(undefined, { 
+                    minimumFractionDigits: vault.underlyingToken === 'WETH' ? 3 : 1, 
+                    maximumFractionDigits: vault.underlyingToken === 'WETH' ? 3 : 1 
+                  })}K`;
+                }
+                return n.toLocaleString(undefined, { 
+                  minimumFractionDigits: vault.underlyingToken === 'WETH' ? 3 : 2, 
+                  maximumFractionDigits: vault.underlyingToken === 'WETH' ? 3 : 2 
+                });
+              }}
             />
           </div>
         {/if}
@@ -526,8 +534,87 @@
     font-size: 2rem;
   }
   .vault-metrics-row {
-    grid-template-columns: repeat(2, 1fr);
+    flex-wrap: wrap;
     gap: 1.5rem;
+  }
+  .metric {
+    flex: 0 0 calc(50% - 0.75rem);
+  }
+}
+
+@media (max-width: 640px) {
+  .vault-header-container {
+    gap: 1rem;
+    align-items: center;
+  }
+
+  .vault-title-row {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: center;
+    text-align: center;
+  }
+
+  .vault-title-text-block {
+    align-items: center;
+  }
+
+  .vault-title {
+    font-size: 1.75rem;
+    text-align: center;
+  }
+
+  .vault-caption-row {
+    font-size: 1rem;
+    justify-content: center;
+  }
+
+  .debank-button {
+    width: 100%;
+    justify-content: center;
+    margin-top: 0;
+  }
+
+  .vault-description {
+    font-size: 0.9rem;
+    text-align: center;
+  }
+
+  .vault-metrics-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    width: 100%;
+  }
+
+  .metric {
+    flex: 0 0 auto;
+    width: 100%;
+    align-items: center;
+  }
+
+  /* Make the last metric (Network) span full width */
+  .metric:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .metric-label {
+    font-size: 0.8rem;
+    text-align: center;
+  }
+
+  .metric-value {
+    font-size: 1.1rem;
+    align-items: center;
+  }
+
+  .asset-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .asset-inline {
+    justify-content: center;
   }
 }
 .error-message {
