@@ -61,7 +61,8 @@
   }
 
   function cropTo4Decimals(value: number) {
-    return Math.floor(value * 10000) / 10000;
+    const cropped = Math.floor(value * 10000) / 10000;
+    return cropped.toFixed(4);
   }
 
   // Fonction utilitaire pour parser en nombre sécurisé
@@ -136,7 +137,7 @@
       </div>
       <div class="row">
         <span class="label">Exchange rate</span>
-        <span class="value">1 <span class="gradient-text">{tokenSymbol}</span> = {cropTo4Decimals(currentLatestPps).toFixed(4)} {underlyingToken}</span>
+        <span class="value">1 <span class="gradient-text">{tokenSymbol}</span> = {cropTo4Decimals(currentLatestPps)} {underlyingToken}</span>
       </div>
     </div>
     <div class="modal-footer">
