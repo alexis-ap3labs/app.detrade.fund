@@ -519,4 +519,5 @@
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
+
 </style> 
