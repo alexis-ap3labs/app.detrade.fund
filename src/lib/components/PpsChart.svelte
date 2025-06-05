@@ -28,7 +28,6 @@
     console.log('Initial timeframe:', timeframe);
     if (browser) {
       fetchLatestPps();
-      fetchData();
     }
     document.addEventListener('click', handleClickOutside);
     return () => {
@@ -40,18 +39,10 @@
   $: ticker = ALL_VAULTS.find(vault => vault.id === vaultId)?.ticker || '';
 
   // Déclenchement du fetch quand le timeframe ou le vaultId change
-  $: if (browser && mounted && (timeframe || vaultId)) {
+  $: if (browser && mounted) {
     console.log('Reactive statement triggered - Timeframe or vaultId changed');
     console.log('Current timeframe:', timeframe);
     console.log('Current vaultId:', vaultId);
-    if (browser) {
-      fetchData();
-    }
-  }
-
-  // Mise à jour du graphique quand le timeframe change
-  $: if (timeframe && browser && mounted) {
-    console.log('Timeframe changed to:', timeframe);
     if (browser) {
       fetchData();
     }

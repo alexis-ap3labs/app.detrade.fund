@@ -1,13 +1,13 @@
 <script lang="ts">
   import { ALL_VAULTS } from '../vaults';
   import { address } from '../stores/wallet';
-  import { latestTvl } from '../stores/latest_tvl';
   import { prices } from '../stores/prices';
-  import { thirtyDayApr } from '../stores/30d_apr';
-  import { netApr } from '../stores/net_apr';
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import NumberRoll from '$lib/components/NumberRoll.svelte';
+  import { loadingState } from '../stores/loading_state';
+  import { vaultStore } from '../stores/vaultStore';
+  import { NETWORKS } from '../vaults';
 
   $: isAdminWallet = $address?.toLowerCase() === '0x5904bfe5d9d96b57c98aaa935337e7aa228ed528'.toLowerCase();
 
@@ -16,133 +16,55 @@
     return Date.now() - lastUpdated > 5 * 60 * 1000; // 5 minutes
   }
 
-  // Fonction pour récupérer le TVL de tous les vaults actifs
-  async function fetchAllTvls() {
-    const activeVaults = ALL_VAULTS.filter(vault => vault.isActive || isAdminWallet);
-    const latestTvlData = $latestTvl;
-    
-    // Ne faire des appels API que pour les vaults qui n'ont pas de données ou dont les données sont périmées
-    const vaultsToUpdate = activeVaults.filter(vault => {
-      const data = latestTvlData[vault.id];
-      return !data || isDataStale(new Date(data.timestamp).getTime());
-    });
-
-    if (vaultsToUpdate.length > 0) {
-      console.log('Updating latest TVL data for active vaults:', vaultsToUpdate.map(v => v.id));
-      try {
-        // Utiliser Promise.allSettled pour gérer les erreurs individuellement
-        const results = await Promise.allSettled(
-          vaultsToUpdate.map(vault => latestTvl.refreshLatestTvl(vault.id))
-        );
-        
-        // Log des résultats pour le debugging
-        results.forEach((result, index) => {
-          const vault = vaultsToUpdate[index];
-          if (result.status === 'fulfilled') {
-            console.log(`Successfully updated TVL for ${vault.id}`);
-          } else {
-            console.error(`Failed to update TVL for ${vault.id}:`, result.reason);
-          }
-        });
-      } catch (error) {
-        console.error('Error updating TVL data:', error);
-      }
-    }
-  }
-
-  // Fonction pour récupérer les APR de tous les vaults actifs
-  async function fetchAllAprs() {
-    const activeVaults = ALL_VAULTS.filter(vault => vault.isActive || isAdminWallet);
-    
-    if (activeVaults.length > 0) {
-      console.log('Updating APR data for active vaults:', activeVaults.map(v => v.id));
-      try {
-        // Fetch both 30 days and net APR data
-        const thirtyDaysPromises = activeVaults.map(vault => {
-          thirtyDayApr.setLoading(vault.id, true);
-          return fetch(`/api/vaults/${vault.id}/metrics/30d_apr`)
-            .then(response => response.json())
-            .then(data => {
-              if (data.apr !== undefined) {
-                thirtyDayApr.setApr(vault.id, {
-                  apr: data.apr,
-                  timestamp: new Date().toISOString()
-                });
-              }
-            })
-            .catch(error => {
-              console.error(`Error fetching 30D APR for ${vault.id}:`, error);
-              thirtyDayApr.setError(vault.id, 'Failed to fetch APR data');
-            });
-        });
-        const netAprPromises = activeVaults.map(vault => {
-          netApr.setLoading(vault.id, true);
-          return fetch(`/api/vaults/${vault.id}/metrics/net_apr`)
-            .then(response => response.json())
-            .then(data => {
-              if (data.apr !== undefined) {
-                netApr.setApr(vault.id, {
-                  apr: data.apr,
-                  startDate: data.startDate,
-                  endDate: data.endDate,
-                  totalReturn: data.totalReturn,
-                  timestamp: new Date().toISOString()
-                });
-              }
-            })
-            .catch(error => {
-              console.error(`Error fetching Net APR for ${vault.id}:`, error);
-              netApr.setError(vault.id, 'Failed to fetch APR data');
-            });
-        });
-        
-        await Promise.all([...thirtyDaysPromises, ...netAprPromises]);
-      } catch (error) {
-        console.error('Error updating APR data:', error);
-      }
-    }
+  function getExplorerBaseUrl(): string {
+    return 'https://basescan.org/tx/';
   }
 
   // Fonction pour charger les données initiales
   async function loadInitialData() {
     try {
-      // Initialiser d'abord le store des prix avec la liste des tokens à suivre
+      loadingState.setLoading(true);
+      
+      // Calculer le nombre total de données à charger
       const activeVaults = ALL_VAULTS.filter(vault => vault.isActive || isAdminWallet);
+      const totalDataPoints = activeVaults.length * 5; // TVL, Net APR, 30D APR, 7D APR, Composition pour chaque vault
+      loadingState.setExpectedDataCount(totalDataPoints);
+      
+      // Initialiser d'abord le store des prix avec la liste des tokens à suivre
       const uniqueTokens = [...new Set(activeVaults.map(v => v.underlyingToken))];
-      // Ajouter WETH si nécessaire
       if (!uniqueTokens.includes('WETH')) {
         uniqueTokens.push('WETH');
       }
       prices.initialize(uniqueTokens);
       
-      // Attendre un court instant pour laisser le temps aux prix de se charger
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Charger toutes les données en parallèle
+      await Promise.all(
+        activeVaults.map(async (vault) => {
+          await vaultStore.fetchAllMetrics(vault.id);
+          loadingState.incrementDataCount();
+        })
+      );
+
+      loadingState.setLoading(false);
+      loadingState.setLastUpdated(Date.now());
       
-      // Charger ensuite les données TVL
-      await fetchAllTvls();
-      
-      // Puis charger les données APR
-      await fetchAllAprs();
+      hasLoadedInitialData = true;
+      isLoading = false;
     } catch (error) {
       console.error('Error loading initial data:', error);
+      loadingState.setError(error instanceof Error ? error.message : String(error));
     }
-  }
-
-  $: {
-    // Ne pas déclencher de mises à jour automatiques ici
-    // console.log('Current prices store state:', $prices);
-    // console.log('Current TVL store state:', $tvl);
   }
 
   $: tvlUsdValue = (vaultId: string, underlyingToken: string) => {
-    const tvlData = $latestTvl[vaultId];
+    const tvlData = $vaultStore[vaultId]?.tvl;
     const priceData = $prices[underlyingToken];
     
-    if (!tvlData?.tvl || !priceData?.price) {
+    if (!tvlData?.value || !priceData?.price) {
       return 0;
     }
 
-    return parseFloat(tvlData.tvl) * priceData.price;
+    return parseFloat(tvlData.value) * priceData.price;
   };
 
   $: isLoadingPrice = (token: string) => {
@@ -155,19 +77,19 @@
   onMount(() => {
     // Charger les données initiales de manière asynchrone
     if (!hasLoadedInitialData) {
-      loadInitialData().then(() => {
-        hasLoadedInitialData = true;
-        isLoading = false;
-      });
+      loadInitialData();
     }
 
     // Configurer les intervalles de rafraîchissement
-    const tvlInterval = setInterval(fetchAllTvls, 5 * 60 * 1000); // 5 minutes
-    const aprInterval = setInterval(fetchAllAprs, 5 * 60 * 1000); // 5 minutes
+    const refreshInterval = setInterval(() => {
+      const currentState = $loadingState;
+      if (!currentState.isLoading) {
+        loadInitialData();
+      }
+    }, 5 * 60 * 1000); // 5 minutes
 
     return () => {
-      clearInterval(tvlInterval);
-      clearInterval(aprInterval);
+      clearInterval(refreshInterval);
     };
   });
 
@@ -177,8 +99,7 @@
 
   function cropHash(hash: string | undefined): string {
     if (!hash) return 'Unknown';
-    const realHash = hash.slice(0, 66); // pour un hash de tx, sinon juste hash
-    return `${realHash.slice(0, 6)}...${realHash.slice(-4)}`;
+    return `${hash.slice(0, 6)}...${hash.slice(-4)}`;
   }
 
   function getActivityLinkFromId(id: string | undefined): string {
@@ -199,8 +120,8 @@
       return vault.isActive;
     })
     .sort((a, b) => {
-      const tvlA = $latestTvl[a.id]?.tvl ?? '0';
-      const tvlB = $latestTvl[b.id]?.tvl ?? '0';
+      const tvlA = $vaultStore[a.id]?.tvl.value ?? '0';
+      const tvlB = $vaultStore[b.id]?.tvl.value ?? '0';
       return parseFloat(tvlB) - parseFloat(tvlA);
     }) as vault}
     <div class="vault-card" role="button" tabindex="0" on:click={() => handleVaultClick(vault.id)} on:keydown={(e) => e.key === 'Enter' && handleVaultClick(vault.id)}>
@@ -218,12 +139,12 @@
         <div class="vault-col center">
           <div class="mobile-label">Net APR</div>
           <div class="value">
-            {#if $netApr[vault.id]?.data?.apr !== null && $netApr[vault.id]?.data?.apr !== undefined}
-              {@const aprValue = $netApr[vault.id]?.data?.apr}
+            {#if $vaultStore[vault.id]?.netApr.value !== null && $vaultStore[vault.id]?.netApr.value !== undefined}
+              {@const aprValue = $vaultStore[vault.id]?.netApr.value}
               {#if aprValue !== null && aprValue !== undefined}
                 <span class="gradient-text">
                   <NumberRoll 
-                    value={parseFloat(aprValue.toString())} 
+                    value={aprValue} 
                     format={(n) => n.toFixed(2)} 
                     suffix="%" 
                   />
@@ -243,12 +164,12 @@
         <div class="vault-col center">
           <div class="mobile-label">30D APR</div>
           <div class="value">
-            {#if $thirtyDayApr[vault.id]?.data?.apr !== null && $thirtyDayApr[vault.id]?.data?.apr !== undefined}
-              {@const aprValue = $thirtyDayApr[vault.id]?.data?.apr}
+            {#if $vaultStore[vault.id]?.thirtyDayApr.value !== null && $vaultStore[vault.id]?.thirtyDayApr.value !== undefined}
+              {@const aprValue = $vaultStore[vault.id]?.thirtyDayApr.value}
               {#if aprValue !== null && aprValue !== undefined}
                 <span class="gradient-text">
                   <NumberRoll 
-                    value={parseFloat(aprValue.toString())} 
+                    value={aprValue} 
                     format={(n) => n.toFixed(2)} 
                     suffix="%" 
                   />
@@ -268,29 +189,37 @@
         <div class="vault-col center">
           <div class="mobile-label">TVL</div>
           <div class="value">
-            {#if $latestTvl[vault.id]?.tvl}
-              {#if parseFloat($latestTvl[vault.id].tvl) >= 1000}
+            {#if $vaultStore[vault.id]?.tvl.value}
+              {#if parseFloat($vaultStore[vault.id].tvl.value) >= 1000}
                 <NumberRoll 
-                  value={parseFloat($latestTvl[vault.id].tvl) / 1000} 
+                  value={parseFloat($vaultStore[vault.id].tvl.value) / 1000} 
                   format={(n) => n.toFixed(1)} 
                   suffix={`K ${vault.underlyingToken}`} 
                 />
               {:else}
                 <NumberRoll 
-                  value={parseFloat($latestTvl[vault.id].tvl)} 
+                  value={parseFloat($vaultStore[vault.id].tvl.value)} 
                   format={(n) => n.toFixed(2)} 
                   suffix={` ${vault.underlyingToken}`} 
                 />
               {/if}
             {:else}
-              <div class="loading-blur">0.00 {vault.underlyingToken}</div>
+              <span class="gradient-text">
+                <NumberRoll value={0} format={(n) => n.toFixed(2)} suffix={` ${vault.underlyingToken}`} />
+              </span>
             {/if}
-            <div class="tvl-usd" class:loading={!$latestTvl[vault.id]?.tvl || isLoadingPrice(vault.underlyingToken)}>
-              <NumberRoll 
-                value={tvlUsdValue(vault.id, vault.underlyingToken)} 
-                format={(n) => n.toLocaleString(undefined, {maximumFractionDigits: 0})} 
-                prefix="$" 
-              />
+            <div class="tvl-usd" class:loading={!$vaultStore[vault.id]?.tvl.value || isLoadingPrice(vault.underlyingToken)}>
+              {#if $vaultStore[vault.id]?.tvl.value && !isLoadingPrice(vault.underlyingToken)}
+                <NumberRoll 
+                  value={tvlUsdValue(vault.id, vault.underlyingToken)} 
+                  format={(n) => n.toLocaleString(undefined, {maximumFractionDigits: 0})} 
+                  prefix="$" 
+                />
+              {:else}
+                <span class="gradient-text">
+                  <NumberRoll value={0} format={(n) => n.toLocaleString(undefined, {maximumFractionDigits: 0})} prefix="$" />
+                </span>
+              {/if}
             </div>
           </div>
         </div>
@@ -518,8 +447,6 @@
   transition: all 0.3s ease;
 }
 .tvl-usd.loading {
-  filter: blur(4px);
-  animation: pulse 1.5s infinite;
   opacity: 0.7;
 }
 @keyframes pulse {

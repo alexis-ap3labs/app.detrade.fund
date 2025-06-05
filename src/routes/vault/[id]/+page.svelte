@@ -17,16 +17,64 @@
   import Details from '$lib/components/Details.svelte';
   import VaultSidePanel from '$lib/components/VaultSidePanel.svelte';
   import Activities from '$lib/components/Activities.svelte';
+  import { vaultStore } from '$lib/stores/vaultStore';
+
+  // Récupérer les données du serveur
+  export let data;
 
   // Récupérer l'ID du vault depuis l'URL
   const vaultId = $page.params.id;
   
-  // Trouver le vault correspondant
-  const vault = ALL_VAULTS.find(v => v.id === vaultId);
+  // Utiliser le vault du serveur
+  const vault = data.vault;
   const network = vault ? {
     icon: vault.networkIcon,
     name: vault.network === NETWORKS.BASE.name ? NETWORKS.BASE.name : NETWORKS.ETHEREUM.name
   } : null;
+
+  // Initialiser le vaultStore avec les données du serveur
+  if (vault && data.initialData) {
+    const { initialData } = data;
+    
+    // Initialiser TVL
+    if (initialData.tvl?.latestTvl) {
+      vaultStore.setTvl(vaultId, {
+        tvl: initialData.tvl.latestTvl.totalAssets || '0',
+        timestamp: initialData.tvl.latestTvl.timestamp || new Date().toISOString(),
+        blockTimestamp: Math.floor(new Date(initialData.tvl.latestTvl.timestamp).getTime() / 1000).toString(),
+        totalSupply: '0'
+      });
+    }
+
+    // Initialiser Net APR
+    if (initialData.netApr) {
+      vaultStore.setNetApr(vaultId, {
+        apr: initialData.netApr.apr,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Initialiser 30D APR
+    if (initialData.thirtyDayApr) {
+      vaultStore.setThirtyDayApr(vaultId, {
+        apr: initialData.thirtyDayApr.apr,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Initialiser 7D APR
+    if (initialData.sevenDayApr) {
+      vaultStore.setSevenDayApr(vaultId, {
+        apr: initialData.sevenDayApr.apr,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Initialiser Composition
+    if (initialData.composition) {
+      vaultStore.setComposition(vaultId, initialData.composition);
+    }
+  }
 
   // Métadonnées dynamiques
   $: pageTitle = vault ? `DeTrade – ${vault.name} Vault` : 'DeTrade – Vault';

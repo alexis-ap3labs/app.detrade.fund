@@ -347,6 +347,11 @@
       {:else}
         <div class="documents-list" bind:this={documentsList}>
           {#if isSettlementTab(activeTab)}
+            <div class="column-headers">
+              <div class="header-cell from">From</div>
+              <div class="header-cell amount">Net Assets</div>
+              <div class="header-cell time">Time</div>
+            </div>
             {#each getUniqueTransactionHashes() as hash}
               {@const events = activities.filter(a => a.id && a.id.startsWith(hash))}
               {@const hasSettlement = events.some(e => e.type === 'settleDeposit' || e.type === 'settleRedeem')}
@@ -354,9 +359,8 @@
               {#if hasSettlement || events.some(e => e.type === 'totalAssetsUpdated')}
                 <div class="document-item">
                   <div class="document-header">
-                    <div class="left-content">
-                      <p class="nav-info">
-                        <span class="nav-label">From: </span>
+                    <div class="activity-row">
+                      <div class="activity-cell from">
                         <a href={getAddressExplorerUrl(currentVault?.administrator)} class="hash-link" target="_blank" rel="noopener noreferrer">
                           {formatAddress(currentVault?.administrator)}
                           <svg class="external-link-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -365,10 +369,9 @@
                             <path d="M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                           </svg>
                         </a>
-                      </p>
-                      <p class="nav-info">
-                        <span class="nav-label">Net Assets: </span>
-                        <span class="nav-value">
+                      </div>
+                      <div class="activity-cell amount">
+                        <span class="cell-value">
                           {#if netAssets.netShares > 0}
                             +{netAssets.netShares.toLocaleString(undefined, { maximumFractionDigits: 2 })} {currentVault?.ticker}
                           {:else if netAssets.netShares < 0}
@@ -377,9 +380,8 @@
                             0 {currentVault?.ticker}
                           {/if}
                         </span>
-                      </p>
-                      <p class="nav-info">
-                        <span class="nav-label">Time: </span>
+                      </div>
+                      <div class="activity-cell time">
                         {#if events[0]?.id}
                           <a href={getActivityLinkFromId(events[0].id)} class="hash-link" target="_blank" rel="noopener noreferrer">
                             {getTimeAgo(events[0].createdAt)}
@@ -390,21 +392,38 @@
                             </svg>
                           </a>
                         {:else}
-                          <span class="nav-value">N/A</span>
+                          <span class="cell-value">N/A</span>
                         {/if}
-                      </p>
+                      </div>
                     </div>
                   </div>
                 </div>
               {/if}
             {/each}
           {:else}
+            <div class="column-headers">
+              <div class="header-cell from">From</div>
+              <div class="header-cell amount">
+                {#if isSettlementTab(activeTab)}
+                  Net Assets
+                {:else}
+                  Amount
+                {/if}
+              </div>
+              {#if !isValuationOrSettlementTab(activeTab)}
+                <div class="header-cell status">Status</div>
+              {/if}
+              {#if !isValuationOrSettlementTab(activeTab)}
+                <div class="header-cell time">Time</div>
+              {:else}
+                <div class="header-cell time">Time</div>
+              {/if}
+            </div>
             {#each activities.filter(a => a.createdAt && !a.type.includes('settle')) as activity}
               <div class="document-item">
                 <div class="document-header">
-                  <div class="left-content">
-                    <p class="nav-info">
-                      <span class="nav-label">From: </span>
+                  <div class="activity-row">
+                    <div class="activity-cell from">
                       {#if activeTab === 'Valuation'}
                         <a href={getAddressExplorerUrl(currentVault?.priceOracle)} class="hash-link" target="_blank" rel="noopener noreferrer">
                           {formatAddress(currentVault?.priceOracle)}
@@ -424,16 +443,9 @@
                           </svg>
                         </a>
                       {/if}
-                    </p>
-                    <p class="nav-info">
-                      <span class="nav-label">
-                        {#if isSettlementTab(activeTab)}
-                          Net Assets: 
-                        {:else}
-                          Amount: 
-                        {/if}
-                      </span>
-                      <span class="nav-value">
+                    </div>
+                    <div class="activity-cell amount">
+                      <span class="cell-value">
                         {#if activeTab === 'Withdraw'}
                           {formatAmountByToken(activity.shares, currentVault?.underlyingToken)} {currentVault?.ticker}
                         {:else if activeTab === 'Valuation'}
@@ -443,27 +455,42 @@
                           {formatAmountByToken(activity.assets, currentVault?.underlyingToken)} {currentVault?.underlyingToken}
                         {/if}
                       </span>
-                    </p>
-                    <p class="nav-info">
-                      <span class="nav-label">Time: </span>
-                      {#if activity.id}
-                        <a href={getActivityLinkFromId(activity.id)} class="hash-link" target="_blank" rel="noopener noreferrer">
-                          {getTimeAgo(activity.createdAt)}
-                          <svg class="external-link-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            <path d="M15 3h6v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            <path d="M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                          </svg>
-                        </a>
-                      {:else}
-                        <span class="nav-value">N/A</span>
-                      {/if}
-                    </p>
+                    </div>
                     {#if !isValuationOrSettlementTab(activeTab)}
-                      <p class="nav-info">
-                        <span class="nav-label">Status: </span>
-                        <span class="nav-value status">{isActivitySettled(activity) ? 'Settled' : 'Pending'}</span>
-                      </p>
+                      <div class="activity-cell status">
+                        <span class="cell-value">{isActivitySettled(activity) ? 'Settled' : 'Pending'}</span>
+                      </div>
+                    {/if}
+                    {#if !isValuationOrSettlementTab(activeTab)}
+                      <div class="activity-cell time">
+                        {#if activity.id}
+                          <a href={getActivityLinkFromId(activity.id)} class="hash-link" target="_blank" rel="noopener noreferrer">
+                            {getTimeAgo(activity.createdAt)}
+                            <svg class="external-link-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                              <path d="M15 3h6v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                              <path d="M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                          </a>
+                        {:else}
+                          <span class="cell-value">N/A</span>
+                        {/if}
+                      </div>
+                    {:else}
+                      <div class="activity-cell time">
+                        {#if activity.id}
+                          <a href={getActivityLinkFromId(activity.id)} class="hash-link" target="_blank" rel="noopener noreferrer">
+                            {getTimeAgo(activity.createdAt)}
+                            <svg class="external-link-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                              <path d="M15 3h6v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                              <path d="M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                          </a>
+                        {:else}
+                          <span class="cell-value">N/A</span>
+                        {/if}
+                      </div>
                     {/if}
                   </div>
                 </div>
@@ -476,16 +503,6 @@
             </div>
           {/if}
         </div>
-        <button class="scroll-button left" on:click={scrollLeft}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M15 18l-6-6 6-6"/>
-          </svg>
-        </button>
-        <button class="scroll-button right" on:click={scrollRight}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 18l6-6-6-6"/>
-          </svg>
-        </button>
       {/if}
     </div>
   </div>
@@ -604,43 +621,94 @@
     gap: 1rem;
   }
 
+  .column-headers {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    padding: 0.5rem 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 500;
+  }
+
+  .column-headers .header-cell {
+    justify-self: center;
+  }
+  .column-headers .header-cell:first-child {
+    justify-self: start;
+    text-align: left;
+  }
+  .column-headers .header-cell:last-child {
+    justify-self: end;
+    text-align: right;
+  }
+
+  /* Pour 3 colonnes dynamiquement */
+  .column-headers:has(.header-cell:nth-child(3):last-child) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .header-cell {
+    padding: 0.5rem 0;
+  }
+
   .document-item {
     background: rgba(10, 34, 58, 0.503);
-    border-radius: 0.75rem;
-    padding: 1.5rem 2rem;
-    min-height: 70px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 0;
+    padding: 1rem;
+    min-height: 60px;
     transition: all 0.2s ease;
-    margin-bottom: 0.5rem;
+  }
+
+  .document-item:first-child {
+    border-top-left-radius: 0.75rem;
+    border-top-right-radius: 0.75rem;
   }
 
   .document-item:last-child {
-    margin-bottom: 0;
+    border-bottom-left-radius: 0.75rem;
+    border-bottom-right-radius: 0.75rem;
   }
 
-  .document-header {
-    display: flex;
-    justify-content: space-between;
+  .activity-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
     align-items: center;
-    height: 100%;
+    width: 100%;
   }
 
-  .left-content {
+  .activity-row .activity-cell {
+    justify-self: center;
+  }
+  .activity-row .activity-cell:first-child {
+    justify-self: start;
+    text-align: left;
+  }
+  .activity-row .activity-cell:last-child {
+    justify-self: end;
+    text-align: right;
+  }
+
+  /* Pour 3 colonnes dynamiquement */
+  .activity-row:has(.activity-cell:nth-child(3):last-child) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .activity-cell {
     display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
+    align-items: center;
   }
 
-  .nav-info {
-    margin: 0;
+  .cell-value {
     font-size: 0.875rem;
-    color: #94a3b8;
-  }
-
-  .nav-value {
-    font-weight: 600;
     color: rgba(255, 255, 255, 0.8);
-    font-family: inherit;
+    font-weight: 500;
   }
 
   .hash-link {
@@ -748,35 +816,41 @@
       margin-bottom: 0;
     }
 
-    .document-header {
-      flex-direction: column;
+    .activity-row {
+      grid-template-columns: 1fr;
       gap: 0.5rem;
     }
 
-    .left-content {
+    .activity-cell {
+      flex-direction: row;
+      justify-content: space-between;
       align-items: center;
-      gap: 0.4rem;
-      width: 100%;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     }
 
-    .nav-info {
+    .activity-cell:last-child {
+      border-bottom: none;
+    }
+
+    .activity-cell::before {
+      content: attr(data-label);
+      font-size: 0.8rem;
+      color: rgba(255, 255, 255, 0.5);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .cell-value {
       font-size: 0.9rem;
-      text-align: center;
-    }
-
-    .nav-value {
-      font-size: 1rem;
-      display: block;
-      margin-top: 0.25rem;
-    }
-
-    .nav-label {
-      display: inline;
-      margin-right: 0.5rem;
     }
 
     /* Supprimer les styles des boutons de défilement */
     .scroll-button {
+      display: none;
+    }
+
+    .column-headers {
       display: none;
     }
   }
@@ -785,10 +859,5 @@
     .chart-box {
       padding-top: 1rem;
     }
-  }
-
-  .status {
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.8);
   }
 </style> 

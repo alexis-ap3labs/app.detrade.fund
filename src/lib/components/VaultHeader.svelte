@@ -3,48 +3,14 @@
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
   import { prices } from '../stores/prices';
-  import { thirtyDayApr } from '../stores/30d_apr';
-  import { netApr } from '../stores/net_apr';
-  import { latestTvl } from '../stores/latest_tvl';
+  import { vaultStore } from '../stores/vaultStore';
+  import { loadingState } from '../stores/loading_state';
 
   export let vault: any;
   export let network: any;
-  export let totalAssets: string = '0';
-  export let netAprValue: number | undefined = 0;
-  export let apr30d: number | undefined = 0;
 
-  let isLoading = {
-    tvl: true,
-    netApr: true,
-    apr30d: true
-  };
-  let errors: {
-    tvl: Error | null;
-    netApr: Error | null;
-    apr30d: Error | null;
-  } = {
-    tvl: null,
-    netApr: null,
-    apr30d: null
-  };
-  let retryCount = 0;
-  const MAX_RETRIES = 3;
+  let isLoading = true;
   let mounted = false;
-  let lastTvlUpdate = 0;
-  const TVL_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-
-  $: formattedTotalAssets = parseFloat(totalAssets) >= 1000
-    ? `${(parseFloat(totalAssets) / 1000).toLocaleString(undefined, { 
-        minimumFractionDigits: vault.underlyingToken === 'WETH' ? 3 : 1, 
-        maximumFractionDigits: vault.underlyingToken === 'WETH' ? 3 : 1 
-      })}K ${vault.underlyingToken}`
-    : `${parseFloat(totalAssets).toLocaleString(undefined, { 
-        minimumFractionDigits: vault.underlyingToken === 'WETH' ? 3 : 2, 
-        maximumFractionDigits: vault.underlyingToken === 'WETH' ? 3 : 2 
-      })} ${vault.underlyingToken}`;
-
-  $: formattedNetApr = netAprValue ? `${netAprValue.toFixed(2)}%` : '0%';
-  $: formattedApr30d = apr30d ? `${apr30d.toFixed(2)}%` : '0%';
 
   // Générer le lien explorer
   $: explorerUrl = vault && network && vault.vaultContract
@@ -62,102 +28,17 @@
     console.log('Loading data for vault:', vault.id);
     
     try {
-      isLoading = { tvl: true, netApr: true, apr30d: true };
-      errors = { tvl: null, netApr: null, apr30d: null };
+      loadingState.setLoading(true);
+      loadingState.setExpectedDataCount(1); // Une seule requête pour toutes les métriques
 
-      // Initialize all stores
-      netApr.setLoading(vault.id, true);
-      thirtyDayApr.setLoading(vault.id, true);
-
-      // Load all metrics in parallel with timeout
-      const timeout = (ms: number) => new Promise((_, reject) => 
-        setTimeout(() => reject(new Error(`Request timeout after ${ms}ms`)), ms)
-      );
-
-      const [tvlResult, netAprResult, apr30dResult] = await Promise.allSettled([
-        // Load TVL only if cache is expired
-        (async () => {
-          try {
-            const now = Date.now();
-            if (now - lastTvlUpdate < TVL_CACHE_DURATION && totalAssets !== '0') {
-              console.log('Using cached TVL data');
-              return true;
-            }
-
-            const response = await Promise.race([
-              fetch(`/api/vaults/${vault.id}/metrics/tvl?latest=true`),
-              timeout(10000) // 10 second timeout
-            ]) as Response;
-            
-            if (!response || !response.ok) {
-              throw new Error('Failed to fetch TVL data');
-            }
-
-            const data = await response.json();
-            console.log('TVL data received:', data);
-            if (data.latestTvl) {
-              totalAssets = data.latestTvl.totalAssets;
-              lastTvlUpdate = now;
-              isLoading.tvl = false;
-            }
-            return true;
-          } catch (error) {
-            console.error('Error loading TVL:', error);
-            errors.tvl = error instanceof Error ? error : new Error(String(error));
-            return false;
-          }
-        })(),
-
-        // Load Net APR using store method
-        (async () => {
-          try {
-            await Promise.race([
-              netApr.fetchNetApr(vault.id),
-              timeout(10000) // 10 second timeout
-            ]);
-            return true;
-          } catch (error) {
-            console.error('Error loading Net APR:', error);
-            netApr.setError(vault.id, error instanceof Error ? error.message : String(error));
-            return false;
-          }
-        })(),
-
-        // Load 30D APR using store method
-        (async () => {
-          try {
-            await Promise.race([
-              thirtyDayApr.fetchThirtyDayApr(vault.id),
-              timeout(10000) // 10 second timeout
-            ]);
-            return true;
-          } catch (error) {
-            console.error('Error loading 30D APR:', error);
-            thirtyDayApr.setError(vault.id, error instanceof Error ? error.message : String(error));
-            return false;
-          }
-        })()
-      ]);
-
-      // Update loading states all at once
-      isLoading = {
-        tvl: tvlResult.status === 'rejected',
-        netApr: netAprResult.status === 'rejected',
-        apr30d: apr30dResult.status === 'rejected'
-      };
-
-      console.log('Loading states updated:', isLoading);
-      console.log('Current values:', { netAprValue, apr30d, totalAssets });
-
-      retryCount = 0;
+      await vaultStore.fetchAllMetrics(vault.id);
+      
+      loadingState.setLoading(false);
+      loadingState.setLastUpdated(Date.now());
+      isLoading = false;
     } catch (error) {
       console.error('Error loading vault data:', error);
-      if (retryCount < MAX_RETRIES) {
-        retryCount++;
-        const delay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Exponential backoff with max 10s
-        console.log(`Retrying in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
-        setTimeout(loadData, delay);
-      }
+      loadingState.setError(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -165,51 +46,20 @@
     console.log('Component mounted, vault:', vault);
     mounted = true;
     if (vault?.id) {
-      netApr.setLoading(vault.id, true);
-      netApr.setError(vault.id, null);
-      thirtyDayApr.setLoading(vault.id, true);
-      thirtyDayApr.setError(vault.id, null);
       loadData();
     }
   });
-
-  // Subscribe to netApr store changes
-  $: if (browser && mounted && vault?.id) {
-    const netAprState = $netApr[vault.id];
-    console.log('Net APR store updated:', netAprState);
-    if (netAprState) {
-      isLoading.netApr = netAprState.loading;
-      if (netAprState.error) {
-        errors.netApr = new Error(netAprState.error);
-      }
-      if (netAprState.data) {
-        netAprValue = netAprState.data.apr ?? undefined;
-        console.log('Net APR value updated:', netAprValue);
-      }
-    }
-  }
-
-  // Subscribe to thirtyDayApr store changes
-  $: if (browser && mounted && vault?.id) {
-    const thirtyDayAprState = $thirtyDayApr[vault.id];
-    console.log('30D APR store updated:', thirtyDayAprState);
-    if (thirtyDayAprState) {
-      isLoading.apr30d = thirtyDayAprState.loading;
-      if (thirtyDayAprState.error) {
-        errors.apr30d = new Error(thirtyDayAprState.error);
-      }
-      if (thirtyDayAprState.data) {
-        apr30d = thirtyDayAprState.data.apr ?? undefined;
-        console.log('30D APR value updated:', apr30d);
-      }
-    }
-  }
 
   // Recharger les données quand le vault change, mais seulement côté client
   $: if (browser && mounted && vault?.id) {
     console.log('Vault changed, reloading data');
     loadData();
   }
+
+  // Computed values from vaultStore
+  $: netAprValue = $vaultStore[vault?.id]?.netApr?.value ?? undefined;
+  $: apr30d = $vaultStore[vault?.id]?.thirtyDayApr?.value ?? undefined;
+  $: totalAssets = $vaultStore[vault?.id]?.tvl?.value ?? '0';
 </script>
 
 <div class="vault-header-container">
@@ -254,11 +104,9 @@
   <div class="vault-metrics-row">
     <div class="metric">
       <div class="metric-label">Net APR</div>
-      <div class="metric-value apr-gradient {isLoading.netApr ? 'balance-blur' : ''}">
-        {#if isLoading.netApr}
+      <div class="metric-value apr-gradient {isLoading ? 'balance-blur' : ''}">
+        {#if isLoading}
           <NumberRoll value={0} suffix="%" format={n => n.toFixed(2)} />
-        {:else if errors.netApr}
-          <span class="error-message">Error loading</span>
         {:else if netAprValue !== undefined}
           <NumberRoll value={netAprValue} suffix="%" format={n => n.toFixed(2)} />
         {:else}
@@ -268,11 +116,9 @@
     </div>
     <div class="metric">
       <div class="metric-label">30D APR</div>
-      <div class="metric-value apr-gradient {isLoading.apr30d ? 'balance-blur' : ''}">
-        {#if isLoading.apr30d}
+      <div class="metric-value apr-gradient {isLoading ? 'balance-blur' : ''}">
+        {#if isLoading}
           <NumberRoll value={0} suffix="%" format={n => n.toFixed(2)} />
-        {:else if errors.apr30d}
-          <span class="error-message">Error loading</span>
         {:else if apr30d !== undefined}
           <NumberRoll value={apr30d} suffix="%" format={n => n.toFixed(2)} />
         {:else}
@@ -282,11 +128,9 @@
     </div>
     <div class="metric">
       <div class="metric-label">TVL</div>
-      <div class="metric-value {isLoading.tvl ? 'balance-blur' : ''}">
-        {#if isLoading.tvl}
+      <div class="metric-value {isLoading ? 'balance-blur' : ''}">
+        {#if isLoading}
           <NumberRoll value={0} suffix={` ${vault.underlyingToken}`} format={n => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} />
-        {:else if errors.tvl}
-          <span class="error-message">Error loading</span>
         {:else}
           <div class="tvl-tooltip">
             <NumberRoll 
