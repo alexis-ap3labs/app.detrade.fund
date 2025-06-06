@@ -659,7 +659,9 @@
 
   .document-item {
     background: rgba(10, 34, 58, 0.503);
-    border-radius: 0;
+    border-radius: 0.75rem;
+    box-shadow: 0 0 0 rgba(25, 62, 182, 0.264);
+    border: 1px solid rgba(255, 255, 255, 0.05);
     padding: 1rem;
     min-height: 60px;
     transition: all 0.2s ease;
@@ -706,15 +708,16 @@
   }
 
   .cell-value {
-    font-size: 0.875rem;
+    font-size: 1rem;
     color: rgba(255, 255, 255, 0.8);
     font-weight: 500;
   }
 
   .hash-link {
-    color: #4DA8FF;
+    color: rgba(255, 255, 255, 0.8);
     text-decoration: none;
-    font-weight: 600;
+    font-weight: 500;
+    font-size: 1rem;
     font-family: inherit;
     transition: opacity 0.2s;
     display: inline-flex;
@@ -723,7 +726,7 @@
   }
 
   .hash-link:hover {
-    opacity: 0.8;
+    opacity: 0.7;
   }
 
   .external-link-icon {
