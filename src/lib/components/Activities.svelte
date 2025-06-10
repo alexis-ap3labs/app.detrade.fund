@@ -190,12 +190,30 @@
     let decimals = currentVault?.underlyingTokenDecimals || 18;
     try {
       const val = typeof amount === 'string' ? amount : amount.toString();
-      const formatted = parseFloat(val) / Math.pow(10, decimals);
-      // Pour Valuation, on force 2 décimales
-      if (activeTab === 'Valuation') {
-        return formatted.toLocaleString(undefined, { maximumFractionDigits: 2 });
+      console.log('Raw amount:', val, 'Decimals:', decimals);
+      
+      // Pour l'USDC, on utilise toujours 6 décimales
+      if (token === 'USDC') {
+        decimals = 6;
       }
-      return formatted.toLocaleString(undefined, { maximumFractionDigits: decimals === 6 ? 2 : 6 });
+      
+      const formatted = parseFloat(val) / Math.pow(10, decimals);
+      console.log('Formatted amount:', formatted);
+      
+      // Pour Valuation, on force 2 décimales pour tous les tokens
+      if (activeTab === 'Valuation') {
+        const result = formatted.toLocaleString(undefined, { 
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2 
+        });
+        console.log('Final result:', result);
+        return result;
+      }
+      
+      // Pour les autres cas, on utilise les décimales appropriées selon le token
+      return formatted.toLocaleString(undefined, { 
+        maximumFractionDigits: decimals === 6 ? 2 : 6 
+      });
     } catch (e) {
       console.error('Error formatting amount:', e);
       return '0';
@@ -449,8 +467,7 @@
                         {#if activeTab === 'Withdraw'}
                           {formatAmountByToken(activity.shares, currentVault?.underlyingToken)} {currentVault?.ticker}
                         {:else if activeTab === 'Valuation'}
-                          {@const val = formatAmountByToken(activity.totalAssets, currentVault?.underlyingToken)}
-                          {parseFloat(val).toFixed(2)} {currentVault?.underlyingToken}
+                          {formatAmountByToken(activity.totalAssets, currentVault?.underlyingToken)} {currentVault?.underlyingToken}
                         {:else}
                           {formatAmountByToken(activity.assets, currentVault?.underlyingToken)} {currentVault?.underlyingToken}
                         {/if}
