@@ -1032,6 +1032,8 @@
 
     } catch (error) {
       console.error('[handleConfirmReview] Transaction failed:', error);
+      // Ajoute cette ligne pour afficher l'erreur dans l'UI
+      wallet.setError(error?.message || 'Transaction failed');
       transactions.reset();
     }
   }
@@ -2259,8 +2261,8 @@ input[type="number"] {
   visibility: hidden;
   opacity: 0;
   position: absolute;
-  left: 50%;
-  transform: translateX(-50%) translateY(-110%);
+  left: 0;
+  transform: translateY(-110%);
   background: rgb(10,34,58);
   color: #fff;
   text-align: left;
@@ -2574,5 +2576,9 @@ input[type="number"] {
   left: 50%;
   transform: translateX(-50%) translateY(-110%);
   min-width: 220px;
+}
+
+.inline-amount.position-tooltip-container {
+  min-width: 60px; /* Ajuste selon le rendu souhaité */
 }
 </style> 

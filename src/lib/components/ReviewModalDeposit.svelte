@@ -150,6 +150,7 @@
       
       dispatch('confirm', transaction);
       console.log('ETH deposit transaction dispatched to parent component');
+      return;
     }
 
     // Pour les autres tokens
@@ -270,8 +271,9 @@
   border-radius: 1.2rem;
   box-shadow: 0 8px 40px rgba(25, 62, 182, 0.25), 0 0 60px rgba(77, 168, 255, 0.12);
   padding: 2.2rem 2.2rem 1.2rem 2.2rem;
-  min-width: 680px;
+  min-width: 320px;
   max-width: 850px;
+  width: 95vw;
   max-height: 95vh;
   z-index: 1010;
   color: #fff;
@@ -489,5 +491,22 @@
   -webkit-text-fill-color: transparent;
   background-clip: text;
   color: transparent;
+}
+@media (max-width: 640px) {
+  .modal-content {
+    min-width: unset;
+    width: 95vw;
+    max-width: 98vw;
+    padding: 1.2rem 0.7rem 0.7rem 0.7rem;
+  }
+  .review-title {
+    font-size: 1.3rem;
+  }
+  .vault-title {
+    font-size: 1.3rem;
+  }
+  .deposit-big {
+    font-size: 1.5rem;
+  }
 }
 </style> 
