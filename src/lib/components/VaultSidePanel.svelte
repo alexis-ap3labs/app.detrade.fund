@@ -16,6 +16,8 @@
   import ReviewModalWithdraw from './ReviewModalWithdraw.svelte';
   import { transactions } from '$lib/stores/transactions';
   import { ASSETS } from '$lib/vaults';
+  import { createPublicClient, http } from 'viem';
+  import { base } from 'viem/chains';
 
   export let vaultId: string;
 
@@ -708,18 +710,33 @@
 
   // Appeler la fonction quand lastDepositRequestId change
   $: if (lastDepositRequestId !== null && $wallet.address && vault?.vaultContract) {
+    console.log('[DEBUG][$:] lastDepositRequestId changed, calling fetchClaimableDepositRequest et checkPendingDeposit', {
+      lastDepositRequestId,
+      address: $wallet.address,
+      vaultContract: vault?.vaultContract
+    });
     fetchClaimableDepositRequest();
+    checkPendingDeposit();
   }
 
   // Vérification d'un dépôt en cours
   async function checkPendingDeposit() {
+    console.log('[DEBUG][checkPendingDeposit] called', {
+      vaultContract: vault?.vaultContract,
+      user: $wallet.address,
+      lastDepositRequestId
+    });
     if (!vault?.vaultContract || !$wallet.address || lastDepositRequestId === null) {
-      console.log('[checkPendingDeposit] missing vaultContract, user, or lastDepositRequestId');
+      console.log('[DEBUG][checkPendingDeposit] missing vaultContract, user, or lastDepositRequestId', {
+        vaultContract: vault?.vaultContract,
+        user: $wallet.address,
+        lastDepositRequestId
+      });
       return;
     }
 
     try {
-      console.log('[checkPendingDeposit] Checking pending deposit for:', {
+      console.log('[DEBUG][checkPendingDeposit] Checking pending deposit for:', {
         vaultContract: vault.vaultContract,
         requestId: lastDepositRequestId,
         user: $wallet.address
@@ -733,19 +750,19 @@
         args: [lastDepositRequestId, $wallet.address as `0x${string}`]
       });
 
-      console.log('[checkPendingDeposit] Raw pendingAmountResult:', pendingAmountResult);
+      console.log('[DEBUG][checkPendingDeposit] Raw pendingAmountResult:', pendingAmountResult);
 
       const decimals = vault.underlyingTokenDecimals || 6;
       const amount = Number(pendingAmountResult) / Math.pow(10, decimals);
       
-      console.log('[checkPendingDeposit] Processed amount:', {
+      console.log('[DEBUG][checkPendingDeposit] Processed amount:', {
         raw: pendingAmountResult,
         decimals,
         amount
       });
       
       if (amount > 0) {
-        console.log('[checkPendingDeposit] Dépôt en attente trouvé:', {
+        console.log('[DEBUG][checkPendingDeposit] Dépôt en attente trouvé:', {
           requestId: lastDepositRequestId,
           amount,
           decimals,
@@ -756,7 +773,7 @@
         pendingAmount = amount.toString();
         pendingRequestIds = [`#${lastDepositRequestId}`];
       } else {
-        console.log('[checkPendingDeposit] Aucun montant en attente trouvé pour:', {
+        console.log('[DEBUG][checkPendingDeposit] Aucun montant en attente trouvé pour:', {
           requestId: lastDepositRequestId,
           raw: pendingAmountResult,
           amount
@@ -765,8 +782,13 @@
         pendingAmount = '0';
         pendingRequestIds = [];
       }
+      console.log('[DEBUG][checkPendingDeposit] FINAL STATE:', {
+        hasPendingDeposit,
+        pendingAmount,
+        pendingRequestIds
+      });
     } catch (e) {
-      console.error('[checkPendingDeposit] Error:', e);
+      console.error('[DEBUG][checkPendingDeposit] Error:', e);
       hasPendingDeposit = false;
       pendingAmount = '0';
       pendingRequestIds = [];
@@ -982,8 +1004,11 @@
     }
     try {
       if (activeTab === 'withdraw' && depositAmount) {
-        // Pour le retrait, on utilise toujours la valeur en wei
-        params[0] = BigInt(maxWithdrawShares);
+        if (isMaxWithdraw) {
+          params[0] = BigInt(maxWithdrawShares);
+        } else {
+          params[0] = parseWei(depositAmount);
+        }
       }
       // Utilise value si présent (ETH natif), sinon n'ajoute pas le champ value
       const writeArgs = {
@@ -1028,7 +1053,14 @@
           await checkPendingRedeem();
           await fetchClaimableRedeemRequest();
         }
-      }, 5000); // Vérifier toutes les 5 secondes
+      }, 30000); // 30 secondes
+
+      // Affichage optimiste de la carte pending deposit
+      if (activeTab === 'deposit') {
+        hasPendingDeposit = true;
+        pendingAmount = depositAmount;
+        pendingRequestIds = ['pending'];
+      }
 
     } catch (error) {
       console.error('[handleConfirmReview] Transaction failed:', error);
@@ -1240,6 +1272,8 @@
     if (unwatchRedeem) unwatchRedeem();
   }
 
+  let pollingInterval: NodeJS.Timeout | null = null;
+
   onMount(() => {
     mounted = true;
     // Charger les données publiques immédiatement
@@ -1253,6 +1287,16 @@
       fetchLastDepositRequestId();
       fetchLastRedeemRequestId();
     }
+
+    // Polling propre toutes les 10 secondes
+    if (pollingInterval) clearInterval(pollingInterval);
+    pollingInterval = setInterval(() => {
+      if ($wallet.address) {
+        console.log('[POLLING] fetchLastDepositRequestId & fetchLastRedeemRequestId', new Date().toISOString());
+        fetchLastDepositRequestId();
+        fetchLastRedeemRequestId();
+      }
+    }, 10000);
 
     // Configurer les watchers d'événements
     if (vault?.vaultContract) {
@@ -1299,6 +1343,7 @@
     if (unwatchDeposit) unwatchDeposit();
     if (unwatchRedeem) unwatchRedeem();
     if (checkLogsInterval) clearInterval(checkLogsInterval);
+    if (pollingInterval) clearInterval(pollingInterval);
   });
 
   // Mettre à jour les données quand le wallet change
@@ -1415,6 +1460,11 @@
   $: disabled = activeTab === 'deposit'
     ? (insufficientBalance || isAllowanceLoading)
     : Number(depositAmount) > Number(formattedMaxWithdrawShares);
+
+  const publicClient = createPublicClient({
+    chain: base,
+    transport: http(import.meta.env.PUBLIC_BASE_RPC)
+  });
 </script>
 
 <div class="side-panel">
