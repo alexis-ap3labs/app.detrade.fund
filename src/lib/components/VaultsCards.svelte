@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ALL_VAULTS } from '../vaults';
+  import { ALL_VAULTS, ASSETS } from '../vaults';
   import { address } from '../stores/wallet';
   import { prices } from '../stores/prices';
   import { onMount } from 'svelte';
@@ -11,9 +11,16 @@
 
   $: isAdminWallet = $address?.toLowerCase() === '0x5904bfe5d9d96b57c98aaa935337e7aa228ed528'.toLowerCase();
 
-  // Fonction pour vérifier si les données sont périmées (plus de 5 minutes)
+  // Ajout pour EURC : liste des wallets autorisés
+  const EURC_ALLOWED_WALLETS = [
+    '0x4bca841c37A1eae9BEEAf20a05FE9dfd29fa893B'.toLowerCase(),
+    '0x4D4CCD4664A6a983243F5F47Eaf37f37d3f96BD7'.toLowerCase()
+  ];
+  $: isEurcAllowedWallet = EURC_ALLOWED_WALLETS.includes($address?.toLowerCase() || '');
+
+  // Fonction pour vérifier si les données sont périmées (plus de 30 secondes)
   function isDataStale(lastUpdated: number): boolean {
-    return Date.now() - lastUpdated > 5 * 60 * 1000; // 5 minutes
+    return Date.now() - lastUpdated > 30 * 1000; // 30 secondes
   }
 
   function getExplorerBaseUrl(): string {
@@ -26,7 +33,7 @@
       loadingState.setLoading(true);
       
       // Calculer le nombre total de données à charger
-      const activeVaults = ALL_VAULTS.filter(vault => vault.isActive || isAdminWallet);
+      const activeVaults = ALL_VAULTS.filter(vault => vault.isActive || isAdminWallet || isEurcAllowedWallet);
       const totalDataPoints = activeVaults.length * 5; // TVL, Net APR, 30D APR, 7D APR, Composition pour chaque vault
       loadingState.setExpectedDataCount(totalDataPoints);
       
@@ -86,7 +93,7 @@
       if (!currentState.isLoading) {
         loadInitialData();
       }
-    }, 5 * 60 * 1000); // 5 minutes
+    }, 30 * 1000); // 30 secondes
 
     return () => {
       clearInterval(refreshInterval);
@@ -116,14 +123,14 @@
       if (vault.id === "dev-detrade-core-usdc") {
         return isAdminWallet;
       }
+      // Si c'est le vault EURC, on ne l'affiche que pour certains wallets
+      if (vault.id === "detrade-core-eurc") {
+        return isEurcAllowedWallet;
+      }
       // Pour tous les autres vaults, on suit la logique isActive
       return vault.isActive;
     })
-    .sort((a, b) => {
-      const tvlA = $vaultStore[a.id]?.tvl.value ?? '0';
-      const tvlB = $vaultStore[b.id]?.tvl.value ?? '0';
-      return parseFloat(tvlB) - parseFloat(tvlA);
-    }) as vault}
+    as vault}
     <div class="vault-card" role="button" tabindex="0" on:click={() => handleVaultClick(vault.id)} on:keydown={(e) => e.key === 'Enter' && handleVaultClick(vault.id)}>
       <div class="vault-header">
         <div class="vault-logo-wrapper">
@@ -143,20 +150,26 @@
               {@const aprValue = $vaultStore[vault.id]?.netApr.value}
               {#if aprValue !== null && aprValue !== undefined}
                 <span class="gradient-text">
-                  <NumberRoll 
-                    value={aprValue} 
-                    format={(n) => n.toFixed(2)} 
-                    suffix="%" 
-                  />
+                  {#key aprValue}
+                    <NumberRoll 
+                      value={aprValue} 
+                      format={(n) => n.toFixed(2)} 
+                      suffix="%" 
+                    />
+                  {/key}
                 </span>
               {:else}
                 <span class="gradient-text">
-                  <NumberRoll value={0} format={(n) => n.toFixed(2)} suffix="%" />
+                  {#key 0}
+                    <NumberRoll value={0} format={(n) => n.toFixed(2)} suffix="%" />
+                  {/key}
                 </span>
               {/if}
             {:else}
               <span class="gradient-text">
-                <NumberRoll value={0} format={(n) => n.toFixed(2)} suffix="%" />
+                {#key 0}
+                  <NumberRoll value={0} format={(n) => n.toFixed(2)} suffix="%" />
+                {/key}
               </span>
             {/if}
           </div>
@@ -168,20 +181,26 @@
               {@const aprValue = $vaultStore[vault.id]?.thirtyDayApr.value}
               {#if aprValue !== null && aprValue !== undefined}
                 <span class="gradient-text">
-                  <NumberRoll 
-                    value={aprValue} 
-                    format={(n) => n.toFixed(2)} 
-                    suffix="%" 
-                  />
+                  {#key aprValue}
+                    <NumberRoll 
+                      value={aprValue} 
+                      format={(n) => n.toFixed(2)} 
+                      suffix="%" 
+                    />
+                  {/key}
                 </span>
               {:else}
                 <span class="gradient-text">
-                  <NumberRoll value={0} format={(n) => n.toFixed(2)} suffix="%" />
+                  {#key 0}
+                    <NumberRoll value={0} format={(n) => n.toFixed(2)} suffix="%" />
+                  {/key}
                 </span>
               {/if}
             {:else}
               <span class="gradient-text">
-                <NumberRoll value={0} format={(n) => n.toFixed(2)} suffix="%" />
+                {#key 0}
+                  <NumberRoll value={0} format={(n) => n.toFixed(2)} suffix="%" />
+                {/key}
               </span>
             {/if}
           </div>
@@ -191,33 +210,43 @@
           <div class="value">
             {#if $vaultStore[vault.id]?.tvl.value}
               {#if parseFloat($vaultStore[vault.id].tvl.value) >= 1000}
-                <NumberRoll 
-                  value={parseFloat($vaultStore[vault.id].tvl.value) / 1000} 
-                  format={(n) => n.toFixed(1)} 
-                  suffix={`K ${vault.underlyingToken}`} 
-                />
+                {#key $vaultStore[vault.id].tvl.value}
+                  <NumberRoll 
+                    value={parseFloat($vaultStore[vault.id].tvl.value) / 1000} 
+                    format={(n) => n.toFixed(1)} 
+                    suffix={`K ${vault.underlyingToken}`} 
+                  />
+                {/key}
               {:else}
-                <NumberRoll 
-                  value={parseFloat($vaultStore[vault.id].tvl.value)} 
-                  format={(n) => n.toFixed(2)} 
-                  suffix={` ${vault.underlyingToken}`} 
-                />
+                {#key $vaultStore[vault.id].tvl.value}
+                  <NumberRoll 
+                    value={parseFloat($vaultStore[vault.id].tvl.value)} 
+                    format={(n) => n.toFixed(2)} 
+                    suffix={` ${vault.underlyingToken}`} 
+                  />
+                {/key}
               {/if}
             {:else}
               <span class="gradient-text">
-                <NumberRoll value={0} format={(n) => n.toFixed(2)} suffix={` ${vault.underlyingToken}`} />
+                {#key 0}
+                  <NumberRoll value={0} format={(n) => n.toFixed(2)} suffix={` ${vault.underlyingToken}`} />
+                {/key}
               </span>
             {/if}
             <div class="tvl-usd" class:loading={!$vaultStore[vault.id]?.tvl.value || isLoadingPrice(vault.underlyingToken)}>
               {#if $vaultStore[vault.id]?.tvl.value && !isLoadingPrice(vault.underlyingToken)}
-                <NumberRoll 
-                  value={tvlUsdValue(vault.id, vault.underlyingToken)} 
-                  format={(n) => n.toLocaleString(undefined, {maximumFractionDigits: 0})} 
-                  prefix="$" 
-                />
+                {#key tvlUsdValue(vault.id, vault.underlyingToken)}
+                  <NumberRoll 
+                    value={tvlUsdValue(vault.id, vault.underlyingToken)} 
+                    format={(n) => n.toLocaleString(undefined, {maximumFractionDigits: 0})} 
+                    prefix="$" 
+                  />
+                {/key}
               {:else}
                 <span class="gradient-text">
-                  <NumberRoll value={0} format={(n) => n.toLocaleString(undefined, {maximumFractionDigits: 0})} prefix="$" />
+                  {#key 0}
+                    <NumberRoll value={0} format={(n) => n.toLocaleString(undefined, {maximumFractionDigits: 0})} prefix="$" />
+                  {/key}
                 </span>
               {/if}
             </div>
@@ -234,12 +263,19 @@
         </div>
         <div class="vault-col center">
           <div class="mobile-label">Rewards</div>
-          <div class="value">
+          <div class="value reward-icons-inline">
             {#if vault.farmedProtocolIcons.length > 0}
               {#each vault.farmedProtocolIcons as icon, i}
-                <span class="reward-icon-bg">
-                  <img src={icon} alt="Reward" class="reward-icon" />
-                </span>
+                {#if icon === ASSETS.icons.tac}
+                  <span class="reward-icon-bg reward-icon-tooltip-container">
+                    <img src={icon} alt="TAC" class="reward-icon" />
+                    <span class="reward-tooltip">This vault earns TAC points.</span>
+                  </span>
+                {:else}
+                  <span class="reward-icon-bg">
+                    <img src={icon} alt="Reward" class="reward-icon" />
+                  </span>
+                {/if}
               {/each}
             {:else}
               <span>-</span>
@@ -530,5 +566,42 @@
 }
 .apr-total-return {
   font-weight: 500;
+}
+.reward-icons-inline {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.25rem;
+}
+.reward-icon-tooltip-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.reward-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  bottom: 120%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(20, 32, 48, 0.93);
+  color: #b4c6ef;
+  padding: 0.18em 0.55em;
+  border-radius: 0.35em;
+  font-size: 15px !important;
+  font-weight: 400;
+  white-space: nowrap;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(77,168,255,0.10);
+  border: 1px solid rgba(77,168,255,0.10);
+  transition: opacity 0.18s, visibility 0.18s;
+  pointer-events: none;
+}
+.reward-icon-tooltip-container:hover .reward-tooltip,
+.reward-icon-tooltip-container:focus-within .reward-tooltip {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
 }
 </style> 

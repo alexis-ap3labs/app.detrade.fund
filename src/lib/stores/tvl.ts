@@ -15,8 +15,8 @@ export type TvlState = {
   [key: string]: TvlData;
 };
 
-// Durée de validité du cache en millisecondes (5 minutes)
-const CACHE_DURATION = 5 * 60 * 1000;
+// Durée de validité du cache en millisecondes (30 secondes)
+const CACHE_DURATION = 30 * 1000;
 
 interface TVLStore {
   value: string;

@@ -14,26 +14,49 @@
 
   async function fetchCompositionData() {
     if (!browser || !mounted) return;
-    
+
     try {
       compositionStore.setLoading(true);
-      const response = await fetch(`/api/oracle/compositions/${vaultId}`);
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch composition data');
+
+      // Lancer les deux fetch en parallèle
+      const [oracleRes, debankRes] = await Promise.all([
+        fetch(`/api/oracle/compositions/${vaultId}`),
+        fetch(`/api/debank/compositions/${vaultId}`)
+      ]);
+
+      // Récupérer les données (ou undefined si erreur)
+      const oracleData = oracleRes.ok ? await oracleRes.json() : undefined;
+      const debankData = debankRes.ok ? await debankRes.json() : undefined;
+
+      // Extraire les compositions valides
+      const oracleComp = oracleData?.compositions;
+      const debankComp = debankData?.compositions;
+
+      // Si aucun résultat, erreur
+      if (!oracleComp && !debankComp) {
+        throw new Error('No composition data found in either source');
       }
-      const data = await response.json();
-      
-      // Vérifier que les données sont valides
-      if (!data.compositions || !data.compositions.allocation) {
+
+      // Si un seul résultat, on le prend
+      let finalComp = oracleComp || debankComp;
+
+      // Si les deux existent, comparer les timestamps
+      if (oracleComp && debankComp) {
+        // On convertit les deux timestamps en Date pour comparer
+        const t1 = new Date(oracleComp.timestamp.replace(' UTC', 'Z'));
+        const t2 = new Date(debankComp.timestamp.replace(' UTC', 'Z'));
+        finalComp = t1 > t2 ? oracleComp : debankComp;
+      }
+
+      // Vérifier que le résultat est valide
+      if (!finalComp || !finalComp.allocation) {
         throw new Error('Invalid composition data format');
       }
-      
-      compositionStore.setComposition(vaultId, data.compositions);
+
+      compositionStore.setComposition(vaultId, finalComp);
     } catch (error) {
       console.error('Error fetching composition data:', error);
       compositionStore.setError(error instanceof Error ? error.message : 'Unknown error');
-      // Réinitialiser les données en cas d'erreur
       compositionStore.setComposition(vaultId, undefined);
     } finally {
       compositionStore.setLoading(false);

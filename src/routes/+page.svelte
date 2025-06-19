@@ -40,7 +40,13 @@
         <div class="vault-col center">30D APR</div>
         <div class="vault-col center">TVL</div>
         <div class="vault-col center">Underlying Asset</div>
-        <div class="vault-col center">Rewards</div>
+        <div class="vault-col center rewards-header">
+          <span class="rewards-title">Rewards</span>
+          <span class="rewards-dummy">
+            <span class="reward-icon-bg"></span>
+            <span class="reward-icon-bg"></span>
+          </span>
+        </div>
       </div>
     </div>
     <div class="vaults-list">
@@ -165,6 +171,11 @@
     text-align: center;
   }
 
+  .vaults-header-row .vault-col.center:last-child {
+    min-width: 90px;
+    justify-content: center;
+  }
+
   .desktop-only {
     display: flex;
   }
@@ -173,5 +184,32 @@
     .desktop-only {
       display: none;
     }
+  }
+
+  .rewards-header {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 1rem;
+  }
+
+  .rewards-dummy {
+    display: inline-flex;
+    visibility: hidden;
+    margin-left: 0.25rem;
+  }
+
+  .rewards-dummy .reward-icon-bg {
+    width: 24px;
+    height: 24px;
+    margin: 0 2px;
+    background: #fff;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .rewards-title {
+    margin-left: 2rem;
   }
 </style> 

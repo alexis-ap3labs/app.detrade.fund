@@ -4,7 +4,7 @@ import { ALL_VAULTS } from '$lib/vaults';
 import type { RequestHandler } from './$types';
 import type { Document, WithId } from 'mongodb';
 
-interface OracleDocument {
+interface DebankDocument {
   timestamp: string;
   nav: {
     usdc?: string;
@@ -23,7 +23,7 @@ interface Allocation {
 export const GET: RequestHandler = async ({ params }) => {
   try {
     const { id } = params;
-    console.log('Fetching latest composition for vault:', id);
+    console.log('Fetching latest composition for vault (debank):', id);
     
     // Vérifier si le vault existe
     const vault = ALL_VAULTS.find(v => v.id === id);
@@ -46,7 +46,9 @@ export const GET: RequestHandler = async ({ params }) => {
     
     // Récupérer le document le plus récent
     const latestComposition = await collection
-      .find({})
+      .find({
+        timestamp: { $regex: /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} UTC$/ }
+      })
       .sort({ timestamp: -1 })
       .limit(1)
       .toArray();
@@ -69,7 +71,7 @@ export const GET: RequestHandler = async ({ params }) => {
         total_supply: rawComposition.nav?.total_supply as string
       },
       positions: rawComposition.positions as Record<string, string>
-    } as OracleDocument;
+    } as DebankDocument;
 
     console.log('Latest composition found:', composition);
 
@@ -117,6 +119,9 @@ export const GET: RequestHandler = async ({ params }) => {
         { status: 400 }
       );
     }
+
+    const docs = await collection.find({}).sort({ timestamp: -1 }).limit(5).toArray();
+    console.log('Top 5 documents triés par timestamp:', docs.map(d => d.timestamp));
 
     return json({
       compositions: {

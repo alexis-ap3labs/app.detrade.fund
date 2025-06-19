@@ -1654,6 +1654,7 @@
     </div>
 
     {#if hasClaimableRedeem && Number(claimableRedeemAmount) > 0}
+      {@html `<script>console.log('CLAIMABLE:', ${hasClaimableRedeem}, ${claimableRedeemAmount})</script>`}
       <div class="pending-box claimable-box">
         <div class="pending-header">
           <span class="pending-dot claimable-dot"></span>
@@ -1829,6 +1830,7 @@
     {/if}
 
     {#if hasClaimableRedeem && Number(claimableRedeemAmount) > 0}
+      {@html `<script>console.log('CLAIMABLE:', ${hasClaimableRedeem}, ${claimableRedeemAmount})</script>`}
       <div class="pending-box claimable-box">
         <div class="pending-header">
           <span class="pending-dot claimable-dot"></span>
