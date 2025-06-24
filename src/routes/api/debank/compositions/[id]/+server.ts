@@ -9,6 +9,8 @@ interface DebankDocument {
   nav: {
     usdc?: string;
     weth?: string;
+    eurc?: string;
+    eth?: string;
     share_price: string;
     total_supply: string;
   };
@@ -67,6 +69,8 @@ export const GET: RequestHandler = async ({ params }) => {
       nav: {
         usdc: rawComposition.nav?.usdc as string,
         weth: rawComposition.nav?.weth as string,
+        eurc: rawComposition.nav?.eurc as string,
+        eth: rawComposition.nav?.eth as string,
         share_price: rawComposition.nav?.share_price as string,
         total_supply: rawComposition.nav?.total_supply as string
       },
@@ -77,14 +81,23 @@ export const GET: RequestHandler = async ({ params }) => {
 
     // Calculer les pourcentages de répartition
     const isEthVault = id === 'detrade-core-eth';
-    const totalValue = parseFloat(isEthVault ? composition.nav.weth || '0' : composition.nav.usdc || '0');
+    const isEurcVault = id === 'detrade-core-eurc';
+    
+    let totalValue: number;
+    if (isEthVault) {
+      totalValue = parseFloat(composition.nav.weth || composition.nav.eth || '0');
+    } else if (isEurcVault) {
+      totalValue = parseFloat(composition.nav.eurc || '0');
+    } else {
+      totalValue = parseFloat(composition.nav.usdc || '0');
+    }
+    
     const positions = composition.positions || {};
-    const spotValue = 0; // Nous n'avons plus de spot value dans la nouvelle structure
 
     // Vérifier que les valeurs sont valides
     if (isNaN(totalValue) || totalValue <= 0) {
       console.error('Invalid total value:', {
-        raw: isEthVault ? composition.nav.weth : composition.nav.usdc,
+        raw: isEthVault ? (composition.nav.weth || composition.nav.eth) : isEurcVault ? composition.nav.eurc : composition.nav.usdc,
         parsed: totalValue,
         vaultId: id
       });
@@ -102,9 +115,17 @@ export const GET: RequestHandler = async ({ params }) => {
       const positionValue = parseFloat(value);
       if (!isNaN(positionValue) && positionValue >= 0) {
         const percentage = (positionValue / totalValue) * 100;
+        let valueDisplay: string;
+        if (isEthVault) {
+          valueDisplay = `${positionValue} ${composition.nav.weth ? 'WETH' : 'ETH'}`;
+        } else if (isEurcVault) {
+          valueDisplay = `${positionValue} EURC`;
+        } else {
+          valueDisplay = value;
+        }
         allocation[position] = {
           percentage: Number(percentage.toFixed(2)),
-          value_usdc: isEthVault ? `${positionValue} WETH` : value
+          value_usdc: valueDisplay
         };
       } else {
         console.warn(`Invalid position value for ${position}:`, value);
@@ -127,7 +148,7 @@ export const GET: RequestHandler = async ({ params }) => {
       compositions: {
         _id: rawComposition._id.toString(),
         timestamp: composition.timestamp,
-        total_value_usdc: isEthVault ? `${totalValue} WETH` : composition.nav.usdc,
+        total_value_usdc: isEthVault ? `${totalValue} ${composition.nav.weth ? 'WETH' : 'ETH'}` : isEurcVault ? `${totalValue} EURC` : composition.nav.usdc,
         allocation
       }
     });
