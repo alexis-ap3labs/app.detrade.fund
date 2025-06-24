@@ -51,13 +51,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
     // Préparer les inputs pour la GitHub Action
     const workflowInputs = {
-      manual_trigger: 'true',
-      vault_id: vaultId,
-      action_type: action,
-      transaction_hash: transactionHash,
-      amount: amount,
-      user_address: userAddress,
-      timestamp: timestamp
+      manual_trigger: 'true'
     };
 
     // Déclencher la GitHub Action
@@ -71,7 +65,7 @@ export const POST: RequestHandler = async ({ request }) => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          ref: 'main', // ou la branche que tu utilises
+          ref: 'master', // ou la branche que tu utilises
           inputs: workflowInputs
         })
       }
