@@ -269,7 +269,12 @@
                 {#if icon === ASSETS.icons.tac}
                   <span class="reward-icon-bg reward-icon-tooltip-container">
                     <img src={icon} alt="TAC" class="reward-icon" />
-                    <span class="reward-tooltip">This vault earns TAC points.</span>
+                    <span class="reward-tooltip">This vault earns TAC points</span>
+                  </span>
+                {:else if icon === ASSETS.icons.resolv}
+                  <span class="reward-icon-bg reward-icon-tooltip-container">
+                    <img src={icon} alt="Resolv" class="reward-icon" />
+                    <span class="reward-tooltip">This vault earns Resolv points</span>
                   </span>
                 {:else}
                   <span class="reward-icon-bg">
@@ -589,7 +594,7 @@
   color: #b4c6ef;
   padding: 0.18em 0.55em;
   border-radius: 0.35em;
-  font-size: 15px !important;
+  font-size: 13px !important;
   font-weight: 400;
   white-space: nowrap;
   z-index: 10;
