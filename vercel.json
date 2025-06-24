@@ -1,0 +1,11 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": ".svelte-kit/output/client",
+  "installCommand": "npm install",
+  "framework": "sveltekit",
+  "functions": {
+    "src/routes/**/*.ts": {
+      "runtime": "nodejs18.x"
+    }
+  }
+} 
