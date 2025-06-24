@@ -18,6 +18,7 @@
   import { ASSETS } from '$lib/vaults';
   import { createPublicClient, http } from 'viem';
   import { base } from 'viem/chains';
+  import { triggerGitHubAction } from '$lib/utils/githubActions';
 
   export let vaultId: string;
 
@@ -918,6 +919,18 @@
       claimableRedeemAmount = '0';
       claimableRedeemRequestId = null;
 
+      // Déclencher la GitHub Action après un claim réussi
+      await triggerGitHubAction({
+        vaultId,
+        action: 'withdraw',
+        transactionHash: hash,
+        amount: claimableRedeemAmount,
+        userAddress: $wallet.address || ''
+      });
+
+      // ⭐ Déclencher l'actualisation du subgraph après confirmation blockchain
+      await triggerSubgraphSync(vaultId);
+
     } catch (error) {
       console.error('[handleClaim] Error:', error);
       transactions.reset();
@@ -1024,6 +1037,18 @@
       const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
       transactions.setComplete();
       showReviewModal = false;
+
+      // Déclencher la GitHub Action après une transaction réussie
+      await triggerGitHubAction({
+        vaultId,
+        action: activeTab,
+        transactionHash: hash,
+        amount: depositAmount,
+        userAddress: $wallet.address || ''
+      });
+
+      // ⭐ Déclencher l'actualisation du subgraph après confirmation blockchain
+      await triggerSubgraphSync(vaultId);
 
       // Mettre à jour immédiatement l'état des pending/claimables
       if (activeTab === 'withdraw') {
@@ -1465,6 +1490,66 @@
     chain: base,
     transport: http(import.meta.env.PUBLIC_BASE_RPC)
   });
+
+  // Fonction pour déclencher l'actualisation du subgraph
+  async function triggerSubgraphSync(vaultId: string) {
+    try {
+      // Mapping des vaultId vers les repoName
+      let repoName: string;
+      if (vaultId === 'detrade-core-eth') {
+        repoName = 'detrade-core-weth';
+      } else if (vaultId === 'detrade-core-usdc') {
+        repoName = 'detrade-core-usdc';
+      } else if (vaultId === 'detrade-core-eurc') {
+        repoName = 'detrade-core-eurc';
+      } else {
+        console.warn('[triggerSubgraphSync] Unknown vaultId:', vaultId);
+        return;
+      }
+
+      // ⭐ Délais échelonnés pour les synchronisations
+      const delays = [
+        { minutes: 3, label: '3 minutes' },
+        { minutes: 10, label: '10 minutes' },
+        { minutes: 30, label: '30 minutes' },
+        { minutes: 60, label: '1 hour' },
+        { minutes: 180, label: '3 hours' }
+      ];
+
+      console.log('[triggerSubgraphSync] Scheduling multiple subgraph syncs for:', repoName);
+
+      // Lancer toutes les synchronisations en parallèle avec leurs délais respectifs
+      delays.forEach(({ minutes, label }) => {
+        setTimeout(async () => {
+          try {
+            console.log(`[triggerSubgraphSync] Triggering sync after ${label} for:`, repoName);
+            
+            const response = await fetch('/api/trigger-subgraph-sync', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ repoName })
+            });
+
+            if (!response.ok) {
+              const errorData = await response.text();
+              console.error(`[triggerSubgraphSync] API error after ${label}:`, response.status, errorData);
+              return;
+            }
+
+            const result = await response.json();
+            console.log(`[triggerSubgraphSync] Success after ${label}:`, result);
+          } catch (error) {
+            console.error(`[triggerSubgraphSync] Error after ${label}:`, error);
+          }
+        }, minutes * 60 * 1000); // Convertir en millisecondes
+      });
+
+    } catch (error) {
+      console.error('[triggerSubgraphSync] Error:', error);
+    }
+  }
 </script>
 
 <div class="side-panel">

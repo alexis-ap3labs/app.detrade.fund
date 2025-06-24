@@ -1,0 +1,79 @@
+name: Vault Action Trigger
+
+on:
+  workflow_dispatch:
+    inputs:
+      vault_id:
+        description: 'Vault ID'
+        required: true
+        type: string
+      action_type:
+        description: 'Type of action (deposit or withdraw)'
+        required: true
+        type: choice
+        options:
+          - deposit
+          - withdraw
+      transaction_hash:
+        description: 'Transaction hash'
+        required: true
+        type: string
+      amount:
+        description: 'Amount involved in the transaction'
+        required: true
+        type: string
+      user_address:
+        description: 'User wallet address'
+        required: true
+        type: string
+      timestamp:
+        description: 'Transaction timestamp'
+        required: true
+        type: string
+
+jobs:
+  process-vault-action:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Process vault action
+        run: |
+          echo "Processing vault action:"
+          echo "Vault ID: ${{ github.event.inputs.vault_id }}"
+          echo "Action Type: ${{ github.event.inputs.action_type }}"
+          echo "Transaction Hash: ${{ github.event.inputs.transaction_hash }}"
+          echo "Amount: ${{ github.event.inputs.amount }}"
+          echo "User Address: ${{ github.event.inputs.user_address }}"
+          echo "Timestamp: ${{ github.event.inputs.timestamp }}"
+          
+          # Ici tu peux ajouter ta logique spécifique pour chaque vault
+          # Par exemple, envoyer des notifications, mettre à jour des bases de données, etc.
+          
+      - name: Send notification
+        if: github.event.inputs.action_type == 'deposit'
+        run: |
+          echo "Sending deposit notification for vault ${{ github.event.inputs.vault_id }}"
+          # Ajouter ici la logique pour envoyer des notifications
+          
+      - name: Update analytics
+        run: |
+          echo "Updating analytics for transaction ${{ github.event.inputs.transaction_hash }}"
+          # Ajouter ici la logique pour mettre à jour les analytics
+          
+      - name: Log action
+        run: |
+          echo "Action completed successfully"
+          echo "Vault: ${{ github.event.inputs.vault_id }}"
+          echo "Type: ${{ github.event.inputs.action_type }}"
+          echo "Hash: ${{ github.event.inputs.transaction_hash }}" 
