@@ -105,29 +105,36 @@ export const GET: RequestHandler = async ({ params }) => {
       );
     }
 
+    // Convertir les positions en ETH si besoin et calculer la somme totale des positions
+    let sumPositions = 0;
+    const convertedPositions: Record<string, number> = {};
+    Object.entries(positions).forEach(([position, value]) => {
+      let positionValue = parseFloat(value);
+      if (!isNaN(positionValue) && positionValue >= 0) {
+        if (isEthVault && positionValue > 1e6) {
+          positionValue = positionValue / Math.pow(10, 18);
+        }
+        convertedPositions[position] = positionValue;
+        sumPositions += positionValue;
+      }
+    });
+
     // Calculer les pourcentages et valeurs pour chaque position
     const allocation: Record<string, Allocation> = {};
-    
-    // Ajouter les positions
-    Object.entries(positions).forEach(([position, value]) => {
-      const positionValue = parseFloat(value);
-      if (!isNaN(positionValue) && positionValue >= 0) {
-        const percentage = (positionValue / totalValue) * 100;
-        let valueDisplay: string;
-        if (isEthVault) {
-          valueDisplay = `${positionValue} ${composition.nav.weth ? 'WETH' : 'ETH'}`;
-        } else if (isEurcVault) {
-          valueDisplay = `${positionValue} EURC`;
-        } else {
-          valueDisplay = value;
-        }
-        allocation[position] = {
-          percentage: Number(percentage.toFixed(2)),
-          value_usdc: valueDisplay
-        };
+    Object.entries(convertedPositions).forEach(([position, positionValue]) => {
+      const percentage = sumPositions > 0 ? (positionValue / sumPositions) * 100 : 0;
+      let valueDisplay: string;
+      if (isEthVault) {
+        valueDisplay = `${positionValue.toFixed(6)} ${composition.nav.weth ? 'WETH' : 'ETH'}`;
+      } else if (isEurcVault) {
+        valueDisplay = `${positionValue} EURC`;
       } else {
-        console.warn(`Invalid position value for ${position}:`, value);
+        valueDisplay = positionValue.toString();
       }
+      allocation[position] = {
+        percentage: Number(percentage.toFixed(2)),
+        value_usdc: valueDisplay
+      };
     });
     
     // Vérifier qu'il y a au moins une position valide
