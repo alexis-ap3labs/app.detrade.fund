@@ -44,7 +44,7 @@ export const GET: RequestHandler = async ({ params }) => {
     const db = client.db(id);
     console.log('Using database:', id);
 
-    const collection = db.collection('debank');
+    const collection = db.collection('oracle');
     
     // Récupérer le document le plus récent
     const latestComposition = await collection
