@@ -97,9 +97,9 @@ export const ALL_VAULTS = [
     created_at: "15/05/2025",
     description: "This vault maximizes risk-adjusted yields for your ETH by diversifying across Ethereum-based DeFi protocols and staking opportunities for optimal market returns.",
     strategy: "Strategies include staking, providing liquidity in ETH pairs, participating in DeFi protocols, and exploring opportunities that deliver high yields with managed risk.",
-    isAirdropFarming: false,
-    farmedProtocols: [],
-    farmedProtocolIcons: [],
+    isAirdropFarming: true,
+    farmedProtocols: ["TAC"],
+    farmedProtocolIcons: [ASSETS.icons.tac],
     isActive: true
   },
   {
