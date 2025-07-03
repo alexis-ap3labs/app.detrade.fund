@@ -12,6 +12,7 @@ interface TotalAssetsEvent {
 interface RawEvent {
   blockTimestamp: number;
   totalAssets: number;
+  type: string;
 }
 
 type TimeFilter = 'all' | '3m' | '1m' | '1w';
@@ -111,26 +112,46 @@ export const GET: RequestHandler = async ({ url, params }) => {
       .filter(event => event.blockTimestamp && event.totalAssets && isValidTimestamp(event.blockTimestamp))
       .reduce((acc: RawEvent[], event) => {
         const existingEvent = acc.find(e => e.blockTimestamp === event.blockTimestamp);
+        
+        console.log(`Processing event: type=${event.type}, timestamp=${event.blockTimestamp}, totalAssets=${event.totalAssets}`);
+        
         if (existingEvent) {
-          if (event.type === 'settleDeposit') {
-            acc = acc.filter(e => e.blockTimestamp !== event.blockTimestamp);
-            acc.push({
-              blockTimestamp: event.blockTimestamp,
-              totalAssets: parseFloat(divideBigNumber(event.totalAssets || '0', decimals))
-            });
+          console.log(`Found existing event at same timestamp: type=${existingEvent.type}, totalAssets=${existingEvent.totalAssets}`);
+          
+          // Si on a déjà un événement à ce timestamp, on doit décider lequel garder
+          // Priorité : settleRedeem > settleDeposit > totalAssetsUpdated
+          // (Les événements de règlement reflètent l'état final après la transaction)
+          let shouldReplace = false;
+          
+          if (event.type === 'settleRedeem') {
+            // settleRedeem a la priorité sur tout
+            shouldReplace = true;
+            console.log('Replacing with settleRedeem (highest priority)');
+          } else if (event.type === 'settleDeposit' && existingEvent.type === 'totalAssetsUpdated') {
+            // settleDeposit a la priorité sur totalAssetsUpdated
+            shouldReplace = true;
+            console.log('Replacing totalAssetsUpdated with settleDeposit');
           }
-          else if (event.type === 'settleRedeem' && existingEvent.totalAssets === 0) {
+          
+          if (shouldReplace) {
             acc = acc.filter(e => e.blockTimestamp !== event.blockTimestamp);
             acc.push({
               blockTimestamp: event.blockTimestamp,
-              totalAssets: parseFloat(divideBigNumber(event.totalAssets || '0', decimals))
+              totalAssets: parseFloat(divideBigNumber(event.totalAssets || '0', decimals)),
+              type: event.type
             });
+            console.log(`Replaced event. New totalAssets: ${parseFloat(divideBigNumber(event.totalAssets || '0', decimals))}`);
+          } else {
+            console.log('Keeping existing event (higher or equal priority)');
           }
         } else {
+          // Nouveau timestamp, on ajoute l'événement
           acc.push({
             blockTimestamp: event.blockTimestamp,
-            totalAssets: parseFloat(divideBigNumber(event.totalAssets || '0', decimals))
+            totalAssets: parseFloat(divideBigNumber(event.totalAssets || '0', decimals)),
+            type: event.type
           });
+          console.log(`Added new event. totalAssets: ${parseFloat(divideBigNumber(event.totalAssets || '0', decimals))}`);
         }
         return acc;
       }, []);
