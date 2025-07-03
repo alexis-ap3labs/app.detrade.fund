@@ -11,12 +11,7 @@
 
   $: isAdminWallet = $address?.toLowerCase() === '0x5904bfe5d9d96b57c98aaa935337e7aa228ed528'.toLowerCase();
 
-  // Ajout pour EURC : liste des wallets autorisés
-  const EURC_ALLOWED_WALLETS = [
-    '0x4bca841c37A1eae9BEEAf20a05FE9dfd29fa893B'.toLowerCase(),
-    '0x4D4CCD4664A6a983243F5F47Eaf37f37d3f96BD7'.toLowerCase()
-  ];
-  $: isEurcAllowedWallet = EURC_ALLOWED_WALLETS.includes($address?.toLowerCase() || '');
+  // Suppression de la restriction EURC - maintenant visible de tous
 
   // Fonction pour vérifier si les données sont périmées (plus de 30 secondes)
   function isDataStale(lastUpdated: number): boolean {
@@ -33,7 +28,7 @@
       loadingState.setLoading(true);
       
       // Calculer le nombre total de données à charger
-      const activeVaults = ALL_VAULTS.filter(vault => vault.isActive || isAdminWallet || isEurcAllowedWallet);
+      const activeVaults = ALL_VAULTS.filter(vault => vault.isActive || isAdminWallet);
       const totalDataPoints = activeVaults.length * 5; // TVL, Net APR, 30D APR, 7D APR, Composition pour chaque vault
       loadingState.setExpectedDataCount(totalDataPoints);
       
@@ -123,10 +118,7 @@
       if (vault.id === "dev-detrade-core-usdc") {
         return isAdminWallet;
       }
-      // Si c'est le vault EURC, on ne l'affiche que pour certains wallets
-      if (vault.id === "detrade-core-eurc") {
-        return isEurcAllowedWallet;
-      }
+      // Le vault EURC est maintenant visible de tous (comme les autres vaults actifs)
       // Pour tous les autres vaults, on suit la logique isActive
       return vault.isActive;
     })
