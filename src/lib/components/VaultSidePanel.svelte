@@ -75,6 +75,14 @@
   // Ajouter la variable pour stocker les assets claimables
   let claimableRedeemAssets: number | null = null;
 
+  // Ajout de la variable pour maxMint (parts prêtes à être claimées)
+  let maxMintShares = '0';
+  let isMaxMintLoading = false;
+
+  // Ajout de la variable pour pendingRedeemRequest(0, userAddress) (parts en attente de retrait)
+  let pendingRedeemRequestShares = '0';
+  let isPendingRedeemRequestLoading = false;
+
   let unsubscribe: () => void;
   let unwatchDeposit: () => void;
   let unwatchRedeem: () => void;
@@ -266,6 +274,68 @@
     }
   }
 
+  // Fonction pour récupérer les parts maxMint (parts prêtes à être claimées)
+  async function fetchMaxMintShares() {
+    console.log('[fetchMaxMintShares] called', { vaultContract: vault?.vaultContract, user: $wallet.address });
+    if (!vault?.vaultContract || !$wallet.address) {
+      maxMintShares = '0';
+      isMaxMintLoading = false;
+      console.log('[fetchMaxMintShares] missing vaultContract or user, set maxMintShares=0');
+      return;
+    }
+
+    try {
+      isMaxMintLoading = true;
+      const shares = await readContract(config, {
+        address: vault.vaultContract as `0x${string}`,
+        abi: vaultAbi,
+        functionName: 'maxMint',
+        args: [$wallet.address as `0x${string}`]
+      });
+      maxMintShares = shares.toString();
+      console.log('[fetchMaxMintShares] fetched', { 
+        rawShares: shares,
+        maxMintShares
+      });
+    } catch (e) {
+      console.error('[fetchMaxMintShares] Error:', e);
+      maxMintShares = '0';
+    } finally {
+      isMaxMintLoading = false;
+    }
+  }
+
+  // Fonction pour récupérer les parts pendingRedeemRequest(0, userAddress) (parts en attente de retrait)
+  async function fetchPendingRedeemRequestShares() {
+    console.log('[fetchPendingRedeemRequestShares] called', { vaultContract: vault?.vaultContract, user: $wallet.address });
+    if (!vault?.vaultContract || !$wallet.address) {
+      pendingRedeemRequestShares = '0';
+      isPendingRedeemRequestLoading = false;
+      console.log('[fetchPendingRedeemRequestShares] missing vaultContract or user, set pendingRedeemRequestShares=0');
+      return;
+    }
+
+    try {
+      isPendingRedeemRequestLoading = true;
+      const shares = await readContract(config, {
+        address: vault.vaultContract as `0x${string}`,
+        abi: vaultAbi,
+        functionName: 'pendingRedeemRequest',
+        args: [BigInt(0), $wallet.address as `0x${string}`]
+      });
+      pendingRedeemRequestShares = shares.toString();
+      console.log('[fetchPendingRedeemRequestShares] fetched', { 
+        rawShares: shares,
+        pendingRedeemRequestShares
+      });
+    } catch (e) {
+      console.error('[fetchPendingRedeemRequestShares] Error:', e);
+      pendingRedeemRequestShares = '0';
+    } finally {
+      isPendingRedeemRequestLoading = false;
+    }
+  }
+
   // Fonction pour rafraîchir le dernier PPS
   async function fetchLatestPps() {
     if (!vaultId) return;
@@ -367,6 +437,8 @@
     console.log('[REACTIVE] fetchVaultUserShares trigger', { address: $wallet.address, vaultContract: vault?.vaultContract });
     isVaultSharesLoading = true;
     debounce('vaultShares', fetchVaultUserShares);
+    debounce('maxMintShares', fetchMaxMintShares);
+    debounce('pendingRedeemRequestShares', fetchPendingRedeemRequestShares);
   }
 
   // Rafraîchir le PPS quand le vaultId change
@@ -563,10 +635,12 @@
     return BigInt(whole + paddedFraction);
   }
 
-  // Calcul du total de parts (claim + non claim) - garder les valeurs en wei
-  $: totalVaultShares = (BigInt(vaultUserShares || '0') + BigInt(claimableDepositShares || '0')).toString();
+  // Calcul du total de parts (balanceOf + maxMint + pendingRedeemRequest(0)) - garder les valeurs en wei
+  $: totalVaultShares = (BigInt(vaultUserShares || '0') + BigInt(maxMintShares || '0') + BigInt(pendingRedeemRequestShares || '0')).toString();
   // Valeurs formatées pour l'affichage
   $: formattedVaultUserShares = fromWei(vaultUserShares);
+  $: formattedMaxMintShares = fromWei(maxMintShares);
+  $: formattedPendingRedeemRequestShares = fromWei(pendingRedeemRequestShares);
   $: formattedClaimableDepositShares = fromWei(claimableDepositShares);
   $: formattedTotalVaultShares = fromWei(totalVaultShares);
   $: totalVaultSharesUsd = Number(formattedTotalVaultShares) * Number(latestPps);
@@ -1124,6 +1198,8 @@
     userBalance = '0';
     vaultTokenBalance = '0';
     vaultUserShares = '0';
+    maxMintShares = '0';
+    pendingRedeemRequestShares = '0';
     latestPps = '1';
     claimableDepositShares = null;
     
@@ -1176,6 +1252,8 @@
     isBalanceLoading = false;
     isVaultBalanceLoading = false;
     isVaultSharesLoading = false;
+    isMaxMintLoading = false;
+    isPendingRedeemRequestLoading = false;
     isPpsLoading = false;
     isClaimableDepositLoading = false;
     isLastDepositRequestIdLoading = false;
@@ -1309,6 +1387,8 @@
     if ($wallet.address) {
       fetchUserBalance();
       fetchVaultUserShares();
+      fetchMaxMintShares();
+      fetchPendingRedeemRequestShares();
       fetchLastDepositRequestId();
       fetchLastRedeemRequestId();
     }
@@ -1375,6 +1455,8 @@
   $: if (mounted && $wallet.address) {
     fetchUserBalance();
     fetchVaultUserShares();
+    fetchMaxMintShares();
+    fetchPendingRedeemRequestShares();
     fetchLastDepositRequestId();
     fetchLastRedeemRequestId();
   }
@@ -1396,16 +1478,16 @@
   // Valeur totale de la position utilisateur en underlying token (wallet + claimable + pending redeem) * PPS + pending deposit
   $: totalPositionUnderlying = (
     Number(formattedVaultUserShares)
-    + (claimableDepositShares ? Number(formattedClaimableDepositShares) : 0)
-    + (hasPendingRedeem ? Number(pendingRedeemAmount) : 0)
+    + Number(formattedMaxMintShares)
+    + Number(formattedPendingRedeemRequestShares)
   ) * Number(latestPps)
     + (hasPendingDeposit ? Number(pendingAmount) : 0);
 
   // Valeur totale des parts (wallet + claimable + pending redeem)
   $: totalParts = (
     Number(formattedVaultUserShares)
-    + (claimableDepositShares ? Number(formattedClaimableDepositShares) : 0)
-    + (hasPendingRedeem ? Number(pendingRedeemAmount) : 0)
+    + Number(formattedMaxMintShares)
+    + Number(formattedPendingRedeemRequestShares)
   );
   // Valeur en underlying des parts
   $: totalPartsUnderlying = totalParts * Number(latestPps);
@@ -1550,6 +1632,102 @@
       console.error('[triggerSubgraphSync] Error:', error);
     }
   }
+
+  // Fonction pour claimer les parts avec la fonction deposit
+  async function handleClaimShares() {
+    if (!vault?.vaultContract || !$wallet.address || Number(maxMintShares) <= 0) {
+      console.error('[handleClaimShares] Missing required data or no shares to claim');
+      return;
+    }
+
+    try {
+      console.log('[handleClaimShares] Starting claim process:', {
+        vaultContract: vault.vaultContract,
+        shares: maxMintShares,
+        user: $wallet.address
+      });
+
+      // 1. Récupérer le dernier requestId de dépôt de l'utilisateur depuis la base de données
+      const response = await fetch(`/api/vaults/${vaultId}/operations/last_request?userAddress=${$wallet.address}`);
+      const data = await response.json();
+      
+      if (!data.lastDepositRequestId) {
+        console.error('[handleClaimShares] No deposit requestId found for user');
+        return;
+      }
+
+      const requestId = data.lastDepositRequestId;
+      console.log('[handleClaimShares] Found last deposit requestId:', requestId);
+
+      // 2. Convertir les shares en assets avec le bon requestId
+      const assets = await readContract(config, {
+        address: vault.vaultContract as `0x${string}`,
+        abi: vaultAbi,
+        functionName: 'convertToAssets',
+        args: [BigInt(maxMintShares), BigInt(requestId)]
+      });
+
+      console.log('[handleClaimShares] Converted shares to assets:', {
+        shares: maxMintShares,
+        requestId,
+        assets: assets.toString()
+      });
+
+      // Ajouter un buffer de +1 wei pour éviter les problèmes de précision
+      const assetsWithBuffer = assets + BigInt(1);
+
+      // 3. Appeler la fonction deposit avec le montant d'assets
+      const hash = await writeContract(config, {
+        address: vault.vaultContract as `0x${string}`,
+        abi: vaultAbi,
+        functionName: 'deposit',
+        args: [
+          assetsWithBuffer, // assets à claim avec buffer
+          $wallet.address as `0x${string}`, // receiver
+          $wallet.address as `0x${string}`  // controller
+        ]
+      });
+
+      console.log('[handleClaimShares] Transaction sent:', hash);
+
+      // Mettre à jour l'état de la transaction
+      transactions.setPending(hash);
+
+      // Attendre la confirmation sur la blockchain
+      const publicClient = getPublicClient(config);
+      const receipt = await publicClient.waitForTransactionReceipt({
+        hash,
+        confirmations: 1
+      });
+
+      console.log('[handleClaimShares] Transaction confirmed:', receipt);
+
+      // Mettre à jour l'état de la transaction
+      transactions.setComplete();
+
+      // Déclencher la GitHub Action après un claim réussi
+      await triggerGitHubAction({
+        vaultId,
+        action: 'deposit',
+        transactionHash: hash,
+        amount: fromWei(assets.toString()),
+        userAddress: $wallet.address || ''
+      });
+
+      // ⭐ Déclencher l'actualisation du subgraph après confirmation blockchain
+      await triggerSubgraphSync(vaultId);
+
+      // Rafraîchir les données après le claim
+      await Promise.all([
+        fetchVaultUserShares(),
+        fetchMaxMintShares()
+      ]);
+
+    } catch (error) {
+      console.error('[handleClaimShares] Error:', error);
+      transactions.reset();
+    }
+  }
 </script>
 
 <div class="side-panel">
@@ -1634,15 +1812,15 @@
         <span class="inline-amount position-tooltip-container {($wallet.address && (isVaultSharesLoading || isPpsLoading)) ? 'balance-blur' : ''}">
           {#if $wallet.address}
             {#if !depositAmount || Number(depositAmount) === 0}
-              <span class="inline-amount">{formatUSDC(totalPositionUnderlying)} {underlyingToken}</span>
+              <span class="inline-amount">{formatUSDC(totalPositionUnderlying)} {vaultId === 'detrade-core-eth' ? 'WETH' : underlyingToken}</span>
             {:else}
-              <span class="inline-amount initial-value">{formatUSDC(totalPositionUnderlying)} {underlyingToken}</span>
+              <span class="inline-amount initial-value">{formatUSDC(totalPositionUnderlying)} {vaultId === 'detrade-core-eth' ? 'WETH' : underlyingToken}</span>
             {/if}
           {:else}
             {#if !depositAmount || Number(depositAmount) === 0}
-              <span class="inline-amount">0.00 {underlyingToken}</span>
+              <span class="inline-amount">0.00 {vaultId === 'detrade-core-eth' ? 'WETH' : underlyingToken}</span>
             {:else}
-              <span class="inline-amount initial-value">0.00 {underlyingToken}</span>
+              <span class="inline-amount initial-value">0.00 {vaultId === 'detrade-core-eth' ? 'WETH' : underlyingToken}</span>
             {/if}
           {/if}
           {#if $wallet.address}
@@ -1652,22 +1830,22 @@
               {:else}
                 <div class="tooltip-content">
                   <div class="tooltip-line">Wallet: {formatUSDC(Number(formattedVaultUserShares))} {vault?.ticker}</div>
-                  {#if claimableDepositShares}
-                    <div class="tooltip-line">Claimable: {formatUSDC(Number(formattedClaimableDepositShares))} {vault?.ticker}</div>
+                  {#if Number(formattedMaxMintShares) > 0}
+                    <div class="tooltip-line">Ready to claim: {formatUSDC(Number(formattedMaxMintShares))} {vault?.ticker}</div>
+                  {/if}
+                  {#if Number(formattedPendingRedeemRequestShares) > 0}
+                    <div class="tooltip-line">Pending redeem: {formatUSDC(Number(formattedPendingRedeemRequestShares))} {vault?.ticker}</div>
                   {/if}
                   {#if hasPendingDeposit && Number(pendingAmount) > 0}
                     <div class="tooltip-line">Pending deposit: {formatUSDC(Number(pendingAmount))} {underlyingToken}</div>
-                  {/if}
-                  {#if hasPendingRedeem && Number(pendingRedeemAmount) > 0}
-                    <div class="tooltip-line">Pending redeem: {formatUSDC(Number(pendingRedeemAmount))} {vault?.ticker}</div>
                   {/if}
                   <div class="tooltip-separator"></div>
                   <div class="tooltip-total">
                     Total: {formatUSDC(
                       (
                         Number(formattedVaultUserShares)
-                        + (claimableDepositShares ? Number(formattedClaimableDepositShares) : 0)
-                        + (hasPendingRedeem ? Number(pendingRedeemAmount) : 0)
+                        + Number(formattedMaxMintShares)
+                        + Number(formattedPendingRedeemRequestShares)
                       ) * Number(latestPps)
                       + (hasPendingDeposit ? Number(pendingAmount) : 0)
                     )} {underlyingToken}
@@ -1676,8 +1854,8 @@
               {/if}
             </span>
           {/if}
-          {#if !((activeTab === 'deposit' && inputUnderlying > 0) || (activeTab === 'withdraw' && withdrawUnderlying > 0)) && (currentUnderlying + pendingUnderlying) > 0}
-            <span class="usd-value">${formatUSDC((currentUnderlying + pendingUnderlying) * (underlyingPrice || 0))}</span>
+          {#if !((activeTab === 'deposit' && inputUnderlying > 0) || (activeTab === 'withdraw' && withdrawUnderlying > 0)) && totalPositionUnderlying > 0}
+            <span class="usd-value">${formatUSDC(totalPositionUnderlying * (underlyingPrice || 0))}</span>
           {/if}
         </span>
         {#if (activeTab === 'deposit' && inputUnderlying > 0) || (activeTab === 'withdraw' && withdrawUnderlying > 0)}
@@ -1784,6 +1962,26 @@
         </div>
       </div>
     {/if}
+
+    {#if Number(maxMintShares) > 0}
+      <div class="pending-box claimable-box">
+        <div class="pending-header">
+          <span class="pending-dot claimable-dot"></span>
+          <span class="pending-title">Ready to claim shares</span>
+        </div>
+        <div class="pending-row">
+          <div class="pending-amount-group">
+            <span class="pending-amount">
+              {formatUSDC(Number(formattedMaxMintShares))} {vault?.ticker}
+            </span>
+            <span class="pending-usd-value">
+              {formatUSDCompact(Number(formattedMaxMintShares) * Number(latestPps) * (underlyingPrice || 0))}
+            </span>
+          </div>
+          <button class="claim-btn" on:click={handleClaimShares}>Claim</button>
+        </div>
+      </div>
+    {/if}
   {:else if activeTab === 'withdraw'}
     <div class="panel-box">
       <div class="panel-title">
@@ -1796,15 +1994,15 @@
         <span class="inline-amount position-tooltip-container {($wallet.address && (isVaultSharesLoading || isPpsLoading)) ? 'balance-blur' : ''}">
           {#if $wallet.address}
             {#if !depositAmount || Number(depositAmount) === 0}
-              <span class="inline-amount">{formatUSDC(currentUnderlying + pendingUnderlying)} {underlyingToken}</span>
+              <span class="inline-amount">{formatUSDC(totalPositionUnderlying)} {vaultId === 'detrade-core-eth' ? 'WETH' : underlyingToken}</span>
             {:else}
-              <span class="inline-amount initial-value">{formatUSDC(currentUnderlying + pendingUnderlying)} {underlyingToken}</span>
+              <span class="inline-amount initial-value">{formatUSDC(totalPositionUnderlying)} {vaultId === 'detrade-core-eth' ? 'WETH' : underlyingToken}</span>
             {/if}
           {:else}
             {#if !depositAmount || Number(depositAmount) === 0}
-              <span class="inline-amount">0.00 {underlyingToken}</span>
+              <span class="inline-amount">0.00 {vaultId === 'detrade-core-eth' ? 'WETH' : underlyingToken}</span>
             {:else}
-              <span class="inline-amount initial-value">0.00 {underlyingToken}</span>
+              <span class="inline-amount initial-value">0.00 {vaultId === 'detrade-core-eth' ? 'WETH' : underlyingToken}</span>
             {/if}
           {/if}
           {#if $wallet.address}
@@ -1814,14 +2012,14 @@
               {:else}
                 <div class="tooltip-content">
                   <div class="tooltip-line">Wallet: {formatUSDC(Number(formattedVaultUserShares))} {vault?.ticker}</div>
-                  {#if claimableDepositShares}
-                    <div class="tooltip-line">Claimable: {formatUSDC(Number(formattedClaimableDepositShares))} {vault?.ticker}</div>
+                  {#if Number(formattedMaxMintShares) > 0}
+                    <div class="tooltip-line">Ready to claim: {formatUSDC(Number(formattedMaxMintShares))} {vault?.ticker}</div>
+                  {/if}
+                  {#if Number(formattedPendingRedeemRequestShares) > 0}
+                    <div class="tooltip-line">Pending redeem: {formatUSDC(Number(formattedPendingRedeemRequestShares))} {vault?.ticker}</div>
                   {/if}
                   {#if hasPendingDeposit && Number(pendingAmount) > 0}
                     <div class="tooltip-line">Pending deposit: {formatUSDC(Number(pendingAmount))} {underlyingToken}</div>
-                  {/if}
-                  {#if hasPendingRedeem && Number(pendingRedeemAmount) > 0}
-                    <div class="tooltip-line">Pending redeem: {formatUSDC(Number(pendingRedeemAmount))} {vault?.ticker}</div>
                   {/if}
                   <div class="tooltip-separator"></div>
                   <div class="tooltip-total">
@@ -1837,8 +2035,8 @@
               {/if}
             </span>
           {/if}
-          {#if !((activeTab === 'deposit' && inputUnderlying > 0) || (activeTab === 'withdraw' && withdrawUnderlying > 0)) && (currentUnderlying + pendingUnderlying) > 0}
-            <span class="usd-value">${formatUSDC((currentUnderlying + pendingUnderlying) * (underlyingPrice || 0))}</span>
+          {#if !((activeTab === 'deposit' && inputUnderlying > 0) || (activeTab === 'withdraw' && withdrawUnderlying > 0)) && totalPositionUnderlying > 0}
+            <span class="usd-value">${formatUSDC(totalPositionUnderlying * (underlyingPrice || 0))}</span>
           {/if}
         </span>
         {#if (activeTab === 'deposit' && inputUnderlying > 0) || (activeTab === 'withdraw' && withdrawUnderlying > 0)}

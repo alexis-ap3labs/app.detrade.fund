@@ -76,7 +76,7 @@
     'Settlement': 'settleDeposit,settleRedeem,totalAssetsUpdated'
   };
 
-  const itemsPerPage = 10;
+  const itemsPerPage = 20;
 
   async function loadMore() {
     if (loading || !hasMore) return;
@@ -92,12 +92,13 @@
       if (!data.success) {
         throw new Error(data.error || 'Failed to load activities');
       }
-      console.log('Activity data structure:', JSON.stringify(data.data[0], null, 2));
+      
       // Trier les activités par date de création (plus récent en premier)
       const sortedData = data.data.sort((a, b) => 
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
       activities = [...activities, ...sortedData];
+      
       hasMore = data.data.length === itemsPerPage;
       currentPage += 1;
       error = null;

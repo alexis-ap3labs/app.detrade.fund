@@ -25,6 +25,7 @@
   let isNetworkMenuOpen = false;
   let unsubscribeAccount: (() => void) | undefined;
   let isTransactionPending = false;
+  let showWalletMenu = false;
   $: isTransactionPending = $transactions.isPending;
 
   function formatAddress(addr: string | null): string {
@@ -43,8 +44,14 @@
   }
 
   function handleClickOutside(event: MouseEvent | TouchEvent) {
-    const menu = document.querySelector('.network-logo-menu');
-    if (menu && !menu.contains(event.target as Node)) {
+    const walletMenu = document.querySelector('.wallet-menu');
+    const networkMenu = document.querySelector('.network-logo-menu');
+    
+    if (walletMenu && !walletMenu.contains(event.target as Node)) {
+      showWalletMenu = false;
+    }
+    
+    if (networkMenu && !networkMenu.contains(event.target as Node)) {
       isNetworkMenuOpen = false;
     }
   }
@@ -89,15 +96,21 @@
     }
   }
 
+  function toggleWalletMenu() {
+    showWalletMenu = !showWalletMenu;
+  }
+
   async function disconnectWallet() {
     try {
       await disconnect(config);
       address = "";
       chainId = null;
       wallet.disconnect();
+      showWalletMenu = false;
     } catch (e) {
       console.error('Disconnect error:', e);
       error = "Erreur lors de la déconnexion";
+      showWalletMenu = false;
     }
   }
 
@@ -133,16 +146,32 @@
           {/if}
         </button>
       </div>
-      <button class="connect-btn connected accent" on:click={disconnectWallet}>
-        {#if isTransactionPending}
-          <div class="pending-indicator">
-            <div class="spinner"></div>
-            <span>Pending</span>
+      <div class="wallet-menu-container">
+        <button class="connect-btn connected accent" on:click={toggleWalletMenu}>
+          {#if isTransactionPending}
+            <div class="pending-indicator">
+              <div class="spinner"></div>
+              <span>Pending</span>
+            </div>
+          {:else}
+            <span>{formatAddress(address)}</span>
+          {/if}
+        </button>
+        
+        {#if showWalletMenu}
+          <div class="wallet-menu">
+            <div class="wallet-menu-header">
+              <span class="wallet-label">Connected Wallet</span>
+              <span class="wallet-address">{formatAddress(address)}</span>
+            </div>
+            <div class="wallet-menu-actions">
+              <button class="disconnect-btn" on:click={disconnectWallet}>
+                Disconnect
+              </button>
+            </div>
           </div>
-        {:else}
-          <span>{formatAddress(address)}</span>
         {/if}
-      </button>
+      </div>
     {:else}
       <button class="connect-btn" on:click={connectRabbyKit}>
         Connect Wallet
@@ -153,6 +182,8 @@
     {/if}
   </div>
 </div>
+
+
 
 <style>
 .wallet-section {
@@ -566,6 +597,91 @@
   font-weight: 500;
 }
 
+/* Menu dropdown du wallet */
+.wallet-menu-container {
+  position: relative;
+  display: inline-block;
+}
+
+.wallet-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 280px;
+  background: rgba(10, 34, 58, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  box-shadow: 
+    0 10px 40px rgba(0, 0, 0, 0.3),
+    0 0 20px rgba(77, 168, 255, 0.1);
+  backdrop-filter: blur(20px);
+  z-index: 1000;
+  animation: menuSlideIn 0.2s ease-out;
+  overflow: hidden;
+}
+
+@keyframes menuSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.wallet-menu-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.wallet-label {
+  display: block;
+  color: #7da2c1;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.wallet-address {
+  display: block;
+  color: #ffffff;
+  font-family: monospace;
+  font-size: 0.9rem;
+  font-weight: 600;
+  background: rgba(77, 168, 255, 0.1);
+  border: 1px solid rgba(77, 168, 255, 0.2);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  text-align: center;
+}
+
+.wallet-menu-actions {
+  padding: 1rem 1.25rem;
+}
+
+.disconnect-btn {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  color: #b4c6ef;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.disconnect-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+
+
 /* Version mobile */
 @media (max-width: 640px) {
   .wallet-section {
@@ -595,6 +711,12 @@
     width: 20px;
     height: 20px;
   }
+
+  .wallet-menu {
+    right: 0;
+    left: auto;
+    min-width: 260px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -602,5 +724,7 @@
     min-width: 110px;
     padding: 0.5rem 0.75rem;
   }
+
+
 }
 </style> 
