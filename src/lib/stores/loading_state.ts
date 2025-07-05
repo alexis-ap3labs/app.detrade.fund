@@ -7,6 +7,7 @@ interface LoadingState {
   readyToDisplay: boolean;
   dataCount: number;
   expectedDataCount: number;
+  isGlobalDataReady: boolean;
 }
 
 function createLoadingStateStore() {
@@ -16,7 +17,8 @@ function createLoadingStateStore() {
     lastUpdated: null,
     readyToDisplay: false,
     dataCount: 0,
-    expectedDataCount: 0
+    expectedDataCount: 0,
+    isGlobalDataReady: false
   });
 
   return {
@@ -60,13 +62,20 @@ function createLoadingStateStore() {
         };
       });
     },
+    setGlobalDataReady: (isReady: boolean) => {
+      update(state => ({
+        ...state,
+        isGlobalDataReady: isReady
+      }));
+    },
     reset: () => set({
       isLoading: false,
       error: null,
       lastUpdated: null,
       readyToDisplay: false,
       dataCount: 0,
-      expectedDataCount: 0
+      expectedDataCount: 0,
+      isGlobalDataReady: false
     })
   };
 }

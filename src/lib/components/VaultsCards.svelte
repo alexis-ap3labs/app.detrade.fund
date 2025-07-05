@@ -8,6 +8,7 @@
   import { loadingState } from '../stores/loading_state';
   import { vaultStore } from '../stores/vaultStore';
   import { NETWORKS } from '../vaults';
+  import { fade } from 'svelte/transition';
 
   $: isAdminWallet = $address?.toLowerCase() === '0x5904bfe5d9d96b57c98aaa935337e7aa228ed528'.toLowerCase();
 
@@ -22,39 +23,157 @@
     return 'https://basescan.org/tx/';
   }
 
-  // Fonction pour charger les données initiales
-  async function loadInitialData() {
+  // Fonction pour charger les données initiales avec optimisation groupée
+  async function loadInitialDataOptimized() {
     try {
       loadingState.setLoading(true);
+      loadingState.setGlobalDataReady(false);
       
-      // Calculer le nombre total de données à charger
       const activeVaults = ALL_VAULTS.filter(vault => vault.isActive || isAdminWallet);
-      const totalDataPoints = activeVaults.length * 5; // TVL, Net APR, 30D APR, 7D APR, Composition pour chaque vault
-      loadingState.setExpectedDataCount(totalDataPoints);
+      const vaultIds = activeVaults.map(v => v.id);
       
-      // Initialiser d'abord le store des prix avec la liste des tokens à suivre
+      // Initialiser le store des prix
       const uniqueTokens = [...new Set(activeVaults.map(v => v.underlyingToken))];
       if (!uniqueTokens.includes('WETH')) {
         uniqueTokens.push('WETH');
       }
       prices.initialize(uniqueTokens);
       
-      // Charger toutes les données en parallèle
-      await Promise.all(
-        activeVaults.map(async (vault) => {
-          await vaultStore.fetchAllMetrics(vault.id);
-          loadingState.incrementDataCount();
-        })
+      // Créer des requêtes groupées par type
+      const tvlPromises = vaultIds.map(id => 
+        fetch(`/api/vaults/${id}/metrics/tvl?latest=true`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => ({ id, data }))
+          .catch(() => ({ id, data: null }))
       );
-
+      
+      const netAprPromises = vaultIds.map(id => 
+        fetch(`/api/vaults/${id}/metrics/net_apr`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => ({ id, data }))
+          .catch(() => ({ id, data: null }))
+      );
+      
+      const thirtyDayAprPromises = vaultIds.map(id => 
+        fetch(`/api/vaults/${id}/metrics/30d_apr`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => ({ id, data }))
+          .catch(() => ({ id, data: null }))
+      );
+      
+      const sevenDayAprPromises = vaultIds.map(id => 
+        fetch(`/api/vaults/${id}/metrics/7d_apr`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => ({ id, data }))
+          .catch(() => ({ id, data: null }))
+      );
+      
+      const compositionPromises = vaultIds.map(id => 
+        fetch(`/api/vaults/${id}/composition`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => ({ id, data }))
+          .catch(() => ({ id, data: null }))
+      );
+      
+      // Attendre que toutes les requêtes se terminent
+      const [tvlResults, netAprResults, thirtyDayAprResults, sevenDayAprResults, compositionResults] = await Promise.all([
+        Promise.all(tvlPromises),
+        Promise.all(netAprPromises),
+        Promise.all(thirtyDayAprPromises),
+        Promise.all(sevenDayAprPromises),
+        Promise.all(compositionPromises)
+      ]);
+      
+      // Mettre à jour le store avec toutes les données en une seule fois
+      vaultStore.update(store => {
+        const newStore = { ...store };
+        
+        // Initialiser tous les vaults
+        vaultIds.forEach(id => {
+          newStore[id] = {
+            tvl: { value: '0', timestamp: '', blockTimestamp: '', totalSupply: '0', loading: false, error: null },
+            netApr: { value: null, timestamp: null, loading: false, error: null },
+            thirtyDayApr: { value: null, timestamp: null, loading: false, error: null },
+            sevenDayApr: { value: null, timestamp: null, loading: false, error: null },
+            composition: { value: null, loading: false, error: null }
+          };
+        });
+        
+        // Appliquer les données TVL
+        tvlResults.forEach(result => {
+          if (result.data?.latestTvl) {
+            newStore[result.id].tvl = {
+              value: result.data.latestTvl.totalAssets || '0',
+              timestamp: result.data.latestTvl.timestamp || new Date().toISOString(),
+              blockTimestamp: Math.floor(new Date(result.data.latestTvl.timestamp).getTime() / 1000).toString(),
+              totalSupply: '0',
+              loading: false,
+              error: null
+            };
+          }
+        });
+        
+        // Appliquer les données Net APR
+        netAprResults.forEach(result => {
+          if (result.data?.apr !== undefined) {
+            newStore[result.id].netApr = {
+              value: result.data.apr,
+              timestamp: new Date().toISOString(),
+              loading: false,
+              error: null
+            };
+          }
+        });
+        
+        // Appliquer les données 30D APR
+        thirtyDayAprResults.forEach(result => {
+          if (result.data?.apr !== undefined) {
+            newStore[result.id].thirtyDayApr = {
+              value: result.data.apr,
+              timestamp: new Date().toISOString(),
+              loading: false,
+              error: null
+            };
+          }
+        });
+        
+        // Appliquer les données 7D APR
+        sevenDayAprResults.forEach(result => {
+          if (result.data?.apr !== undefined) {
+            newStore[result.id].sevenDayApr = {
+              value: result.data.apr,
+              timestamp: new Date().toISOString(),
+              loading: false,
+              error: null
+            };
+          }
+        });
+        
+        // Appliquer les données de composition
+        compositionResults.forEach(result => {
+          if (result.data) {
+            newStore[result.id].composition = {
+              value: result.data,
+              loading: false,
+              error: null
+            };
+          }
+        });
+        
+        return newStore;
+      });
+      
       loadingState.setLoading(false);
       loadingState.setLastUpdated(Date.now());
+      loadingState.setGlobalDataReady(true);
       
       hasLoadedInitialData = true;
       isLoading = false;
+      
     } catch (error) {
       console.error('Error loading initial data:', error);
       loadingState.setError(error instanceof Error ? error.message : String(error));
+      loadingState.setGlobalDataReady(true); // Afficher quand même les vaults même en cas d'erreur
     }
   }
 
@@ -69,24 +188,24 @@
     return parseFloat(tvlData.value) * priceData.price;
   };
 
+  let isLoading = true;
+  let hasLoadedInitialData = false;
+
   $: isLoadingPrice = (token: string) => {
     return !$prices[token]?.price;
   };
 
-  let isLoading = true;
-  let hasLoadedInitialData = false;
-
   onMount(() => {
     // Charger les données initiales de manière asynchrone
     if (!hasLoadedInitialData) {
-      loadInitialData();
+      loadInitialDataOptimized();
     }
 
     // Configurer les intervalles de rafraîchissement
     const refreshInterval = setInterval(() => {
       const currentState = $loadingState;
       if (!currentState.isLoading) {
-        loadInitialData();
+        loadInitialDataOptimized();
       }
     }, 30 * 1000); // 30 secondes
 
@@ -112,176 +231,189 @@
 </script>
 
 <div class="vaults-list">
-  {#each ALL_VAULTS
-    .filter(vault => {
-      // Si c'est le vault dev, on ne l'affiche que pour l'admin
-      if (vault.id === "dev-detrade-core-usdc") {
-        return isAdminWallet;
-      }
-      // Le vault EURC est maintenant visible de tous (comme les autres vaults actifs)
-      // Pour tous les autres vaults, on suit la logique isActive
-      return vault.isActive;
-    })
-    as vault}
-    <div class="vault-card" role="button" tabindex="0" on:click={() => handleVaultClick(vault.id)} on:keydown={(e) => e.key === 'Enter' && handleVaultClick(vault.id)}>
-      <div class="vault-header">
-        <div class="vault-logo-wrapper">
-          <img src={vault.curatorIcon} alt="curator" class="vault-logo" />
-          <img src={vault.networkIcon} alt="network" class="network-icon" />
-        </div>
-        <div>
-          <div class="vault-name">{vault.name}</div>
-          <div class="vault-curator">Curated by {vault.curator}</div>
-        </div>
+  {#if !$loadingState.isGlobalDataReady}
+    <div class="global-loader">
+      <div class="loader-content">
+        <div class="loading-spinner"></div>
       </div>
-      <div class="vault-details">
-        <div class="vault-col center">
-          <div class="mobile-label">Net APR</div>
-          <div class="value">
-            {#if $vaultStore[vault.id]?.netApr.value !== null && $vaultStore[vault.id]?.netApr.value !== undefined}
-              {@const aprValue = $vaultStore[vault.id]?.netApr.value}
-              {#if aprValue !== null && aprValue !== undefined}
-                <span class="gradient-text">
-                  {#key aprValue}
-                    <NumberRoll 
-                      value={aprValue} 
-                      format={(n) => n.toFixed(2)} 
-                      suffix="%" 
-                    />
-                  {/key}
-                </span>
+    </div>
+  {:else}
+    {#each ALL_VAULTS
+      .filter(vault => {
+        // Si c'est le vault dev, on ne l'affiche que pour l'admin
+        if (vault.id === "dev-detrade-core-usdc") {
+          return isAdminWallet;
+        }
+        // Le vault EURC est maintenant visible de tous (comme les autres vaults actifs)
+        // Pour tous les autres vaults, on suit la logique isActive
+        return vault.isActive;
+      })
+      as vault, index}
+      <div class="vault-card" 
+           role="button" 
+           tabindex="0" 
+           on:click={() => handleVaultClick(vault.id)} 
+           on:keydown={(e) => e.key === 'Enter' && handleVaultClick(vault.id)}
+           in:fade={{ delay: 100 + (index * 150), duration: 600 }}>
+        <div class="vault-header">
+          <div class="vault-logo-wrapper">
+            <img src={vault.curatorIcon} alt="curator" class="vault-logo" />
+            <img src={vault.networkIcon} alt="network" class="network-icon" />
+          </div>
+          <div>
+            <div class="vault-name">{vault.name}</div>
+            <div class="vault-curator">Curated by {vault.curator}</div>
+          </div>
+        </div>
+        <div class="vault-details">
+          <div class="vault-col center">
+            <div class="mobile-label">Net APR</div>
+            <div class="value">
+              {#if $vaultStore[vault.id]?.netApr.value !== null && $vaultStore[vault.id]?.netApr.value !== undefined}
+                {@const aprValue = $vaultStore[vault.id]?.netApr.value}
+                {#if aprValue !== null && aprValue !== undefined}
+                  <span class="gradient-text">
+                    {#key aprValue}
+                      <NumberRoll 
+                        value={aprValue} 
+                        format={(n) => n.toFixed(2)} 
+                        suffix="%" 
+                      />
+                    {/key}
+                  </span>
+                {:else}
+                  <span class="gradient-text">
+                    {#key 0}
+                      <NumberRoll value={0} format={(n) => n.toFixed(2)} suffix="%" />
+                    {/key}
+                  </span>
+                {/if}
               {:else}
                 <span class="gradient-text">
                   {#key 0}
                     <NumberRoll value={0} format={(n) => n.toFixed(2)} suffix="%" />
-                  {/key}
-                </span>
-              {/if}
-            {:else}
-              <span class="gradient-text">
-                {#key 0}
-                  <NumberRoll value={0} format={(n) => n.toFixed(2)} suffix="%" />
-                {/key}
-              </span>
-            {/if}
-          </div>
-        </div>
-        <div class="vault-col center">
-          <div class="mobile-label">30D APR</div>
-          <div class="value">
-            {#if $vaultStore[vault.id]?.thirtyDayApr.value !== null && $vaultStore[vault.id]?.thirtyDayApr.value !== undefined}
-              {@const aprValue = $vaultStore[vault.id]?.thirtyDayApr.value}
-              {#if aprValue !== null && aprValue !== undefined}
-                <span class="gradient-text">
-                  {#key aprValue}
-                    <NumberRoll 
-                      value={aprValue} 
-                      format={(n) => n.toFixed(2)} 
-                      suffix="%" 
-                    />
-                  {/key}
-                </span>
-              {:else}
-                <span class="gradient-text">
-                  {#key 0}
-                    <NumberRoll value={0} format={(n) => n.toFixed(2)} suffix="%" />
-                  {/key}
-                </span>
-              {/if}
-            {:else}
-              <span class="gradient-text">
-                {#key 0}
-                  <NumberRoll value={0} format={(n) => n.toFixed(2)} suffix="%" />
-                {/key}
-              </span>
-            {/if}
-          </div>
-        </div>
-        <div class="vault-col center">
-          <div class="mobile-label">TVL</div>
-          <div class="value">
-            {#if $vaultStore[vault.id]?.tvl.value}
-              {#if parseFloat($vaultStore[vault.id].tvl.value) >= 1000}
-                {#key $vaultStore[vault.id].tvl.value}
-                  <NumberRoll 
-                    value={parseFloat($vaultStore[vault.id].tvl.value) / 1000} 
-                    format={(n) => n.toFixed(1)} 
-                    suffix={`K ${vault.underlyingToken}`} 
-                  />
-                {/key}
-              {:else}
-                {#key $vaultStore[vault.id].tvl.value}
-                  <NumberRoll 
-                    value={parseFloat($vaultStore[vault.id].tvl.value)} 
-                    format={(n) => n.toFixed(2)} 
-                    suffix={` ${vault.underlyingToken}`} 
-                  />
-                {/key}
-              {/if}
-            {:else}
-              <span class="gradient-text">
-                {#key 0}
-                  <NumberRoll value={0} format={(n) => n.toFixed(2)} suffix={` ${vault.underlyingToken}`} />
-                {/key}
-              </span>
-            {/if}
-            <div class="tvl-usd" class:loading={!$vaultStore[vault.id]?.tvl.value || isLoadingPrice(vault.underlyingToken)}>
-              {#if $vaultStore[vault.id]?.tvl.value && !isLoadingPrice(vault.underlyingToken)}
-                {#key tvlUsdValue(vault.id, vault.underlyingToken)}
-                  <NumberRoll 
-                    value={tvlUsdValue(vault.id, vault.underlyingToken)} 
-                    format={(n) => n.toLocaleString(undefined, {maximumFractionDigits: 0})} 
-                    prefix="$" 
-                  />
-                {/key}
-              {:else}
-                <span class="gradient-text">
-                  {#key 0}
-                    <NumberRoll value={0} format={(n) => n.toLocaleString(undefined, {maximumFractionDigits: 0})} prefix="$" />
                   {/key}
                 </span>
               {/if}
             </div>
           </div>
-        </div>
-        <div class="vault-col asset center">
-          <div class="mobile-label">Asset</div>
-          <div class="value">
-            <span class="nowrap asset-inline">
-              <img src={vault.underlyingTokenIcon} alt={vault.underlyingToken} class="asset-icon" />
-              {vault.underlyingToken}
-            </span>
-          </div>
-        </div>
-        <div class="vault-col center">
-          <div class="mobile-label">Rewards</div>
-          <div class="value reward-icons-inline">
-            {#if vault.farmedProtocolIcons.length > 0}
-              {#each vault.farmedProtocolIcons as icon, i}
-                {#if icon === ASSETS.icons.tac}
-                  <span class="reward-icon-bg reward-icon-tooltip-container">
-                    <img src={icon} alt="TAC" class="reward-icon" />
-                    <span class="reward-tooltip">This vault earns TAC points</span>
-                  </span>
-                {:else if icon === ASSETS.icons.resolv}
-                  <span class="reward-icon-bg reward-icon-tooltip-container">
-                    <img src={icon} alt="Resolv" class="reward-icon" />
-                    <span class="reward-tooltip">This vault earns Resolv points</span>
+          <div class="vault-col center">
+            <div class="mobile-label">30D APR</div>
+            <div class="value">
+              {#if $vaultStore[vault.id]?.thirtyDayApr.value !== null && $vaultStore[vault.id]?.thirtyDayApr.value !== undefined}
+                {@const aprValue = $vaultStore[vault.id]?.thirtyDayApr.value}
+                {#if aprValue !== null && aprValue !== undefined}
+                  <span class="gradient-text">
+                    {#key aprValue}
+                      <NumberRoll 
+                        value={aprValue} 
+                        format={(n) => n.toFixed(2)} 
+                        suffix="%" 
+                      />
+                    {/key}
                   </span>
                 {:else}
-                  <span class="reward-icon-bg">
-                    <img src={icon} alt="Reward" class="reward-icon" />
+                  <span class="gradient-text">
+                    {#key 0}
+                      <NumberRoll value={0} format={(n) => n.toFixed(2)} suffix="%" />
+                    {/key}
                   </span>
                 {/if}
-              {/each}
-            {:else}
-              <span>-</span>
-            {/if}
+              {:else}
+                <span class="gradient-text">
+                  {#key 0}
+                    <NumberRoll value={0} format={(n) => n.toFixed(2)} suffix="%" />
+                  {/key}
+                </span>
+              {/if}
+            </div>
+          </div>
+          <div class="vault-col center">
+            <div class="mobile-label">TVL</div>
+            <div class="value">
+              {#if $vaultStore[vault.id]?.tvl.value}
+                {#if parseFloat($vaultStore[vault.id].tvl.value) >= 1000}
+                  {#key $vaultStore[vault.id].tvl.value}
+                    <NumberRoll 
+                      value={parseFloat($vaultStore[vault.id].tvl.value) / 1000} 
+                      format={(n) => n.toFixed(1)} 
+                      suffix={`K ${vault.underlyingToken}`} 
+                    />
+                  {/key}
+                {:else}
+                  {#key $vaultStore[vault.id].tvl.value}
+                    <NumberRoll 
+                      value={parseFloat($vaultStore[vault.id].tvl.value)} 
+                      format={(n) => n.toFixed(2)} 
+                      suffix={` ${vault.underlyingToken}`} 
+                    />
+                  {/key}
+                {/if}
+              {:else}
+                <span class="gradient-text">
+                  {#key 0}
+                    <NumberRoll value={0} format={(n) => n.toFixed(2)} suffix={` ${vault.underlyingToken}`} />
+                  {/key}
+                </span>
+              {/if}
+              <div class="tvl-usd" class:loading={!$vaultStore[vault.id]?.tvl.value || isLoadingPrice(vault.underlyingToken)}>
+                {#if $vaultStore[vault.id]?.tvl.value && !isLoadingPrice(vault.underlyingToken)}
+                  {#key tvlUsdValue(vault.id, vault.underlyingToken)}
+                    <NumberRoll 
+                      value={tvlUsdValue(vault.id, vault.underlyingToken)} 
+                      format={(n) => n.toLocaleString(undefined, {maximumFractionDigits: 0})} 
+                      prefix="$" 
+                    />
+                  {/key}
+                {:else}
+                  <span class="gradient-text">
+                    {#key 0}
+                      <NumberRoll value={0} format={(n) => n.toLocaleString(undefined, {maximumFractionDigits: 0})} prefix="$" />
+                    {/key}
+                  </span>
+                {/if}
+              </div>
+            </div>
+          </div>
+          <div class="vault-col asset center">
+            <div class="mobile-label">Asset</div>
+            <div class="value">
+              <span class="nowrap asset-inline">
+                <img src={vault.underlyingTokenIcon} alt={vault.underlyingToken} class="asset-icon" />
+                {vault.underlyingToken}
+              </span>
+            </div>
+          </div>
+          <div class="vault-col center">
+            <div class="mobile-label">Rewards</div>
+            <div class="value reward-icons-inline">
+              {#if vault.farmedProtocolIcons.length > 0}
+                {#each vault.farmedProtocolIcons as icon, i}
+                  {#if icon === ASSETS.icons.tac}
+                    <span class="reward-icon-bg reward-icon-tooltip-container">
+                      <img src={icon} alt="TAC" class="reward-icon" />
+                      <span class="reward-tooltip">This vault earns TAC points</span>
+                    </span>
+                  {:else if icon === ASSETS.icons.resolv}
+                    <span class="reward-icon-bg reward-icon-tooltip-container">
+                      <img src={icon} alt="Resolv" class="reward-icon" />
+                      <span class="reward-tooltip">This vault earns Resolv points</span>
+                    </span>
+                  {:else}
+                    <span class="reward-icon-bg">
+                      <img src={icon} alt="Reward" class="reward-icon" />
+                    </span>
+                  {/if}
+                {/each}
+              {:else}
+                <span>-</span>
+              {/if}
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  {/each}
+    {/each}
+  {/if}
 </div>
 
 <style>
@@ -600,5 +732,53 @@
   visibility: visible;
   opacity: 1;
   pointer-events: auto;
+}
+
+/* Styles pour le loader global */
+.global-loader {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 400px;
+  width: 100%;
+}
+
+.loader-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top: 3px solid rgba(255, 255, 255, 0.7);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.loading-text {
+  color: #7da2c1;
+  font-size: 1.1rem;
+  text-align: center;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Animation d'apparition des vault cards */
+@keyframes slideUpFade {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style> 

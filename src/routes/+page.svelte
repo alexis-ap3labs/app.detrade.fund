@@ -4,6 +4,7 @@
   import Footer from '$lib/components/Footer.svelte';
   import VaultsCards from '$lib/components/VaultsCards.svelte';
   import FloatingHexagons from '$lib/components/FloatingHexagons.svelte';
+  import { loadingState } from '$lib/stores/loading_state';
 </script>
 
 <svelte:head>
@@ -35,20 +36,22 @@
   <FloatingHexagons />
   <div class="container">
     <div class="fixed-header">
-      <div class="vaults-header-row desktop-only">
-        <div class="vault-header-col">Name</div>
-        <div class="vault-col center">Net APR</div>
-        <div class="vault-col center">30D APR</div>
-        <div class="vault-col center">TVL</div>
-        <div class="vault-col center">Underlying Asset</div>
-        <div class="vault-col center rewards-header">
-          <span class="rewards-title">Rewards</span>
-          <span class="rewards-dummy">
-            <span class="reward-icon-bg"></span>
-            <span class="reward-icon-bg"></span>
-          </span>
+      {#if $loadingState.isGlobalDataReady}
+        <div class="vaults-header-row desktop-only">
+          <div class="vault-header-col">Name</div>
+          <div class="vault-col center">Net APR</div>
+          <div class="vault-col center">30D APR</div>
+          <div class="vault-col center">TVL</div>
+          <div class="vault-col center">Underlying Asset</div>
+          <div class="vault-col center rewards-header">
+            <span class="rewards-title">Rewards</span>
+            <span class="rewards-dummy">
+              <span class="reward-icon-bg"></span>
+              <span class="reward-icon-bg"></span>
+            </span>
+          </div>
         </div>
-      </div>
+      {/if}
     </div>
     <div class="vaults-list">
       <VaultsCards />
