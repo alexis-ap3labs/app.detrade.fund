@@ -4,7 +4,7 @@ import { mainnet, base } from "@wagmi/core/chains";
 import { env } from '$env/dynamic/public';
 import { getAccount } from '@wagmi/core';
 
-// Configuration de base pour Wagmi
+// Base configuration for Wagmi
 export const config = createConfig(
   getDefaultConfig({
     appName: "app.detrade.fund",
@@ -17,12 +17,12 @@ export const config = createConfig(
   })
 );
 
-// Fonction pour détecter si on est sur mobile
+// Function to detect if on mobile device
 function isMobile() {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 
-// Fonction pour ouvrir MetaMask sur mobile
+// Function to open MetaMask on mobile
 function openMetaMask() {
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
   const url = isIOS 
@@ -50,16 +50,16 @@ async function ensureBaseNetwork() {
   try {
     await switchChain(config, { chainId: base.id });
   } catch (e) {
-    alert("Merci de sélectionner le réseau Base dans votre wallet.");
+    alert("Please select the Base network in your wallet.");
   }
 }
 
 function connectRabbyKit() {
   if (isMobile()) {
-    // Sur mobile, on ouvre directement MetaMask
+    // On mobile, open MetaMask directly
     openMetaMask();
   } else {
-    // Sur desktop, on utilise le modal normal
+    // On desktop, use the normal modal
     rabbykit.open({
       onConnect: () => {
         const account = getAccount(config);

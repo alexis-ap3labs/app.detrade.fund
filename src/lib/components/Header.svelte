@@ -10,13 +10,16 @@
     import { fly } from 'svelte/transition';
     import { quintOut } from 'svelte/easing';
     
+    // Header visibility state and scroll tracking
     let isHeaderVisible = true;
     let lastScrollY = 0;
     let errorTimeout: NodeJS.Timeout;
   
+    // Auto-hide header on scroll down, show on scroll up
     if (typeof window !== 'undefined') {
       const handleScroll = () => {
         const currentScrollY = window.scrollY;
+        // Show header if at top or scrolling up within threshold
         isHeaderVisible = currentScrollY <= 25 || (currentScrollY < lastScrollY && currentScrollY <= 25);
         lastScrollY = currentScrollY;
       };
@@ -30,8 +33,10 @@
       });
     }
   
+    // App route detection (currently always true for this layout)
     $: isAppRoute = true;
   
+    // Auto-dismiss wallet connection errors after 10 seconds
     function handleError() {
       if (errorTimeout) clearTimeout(errorTimeout);
       if ($wallet.error) {
@@ -41,6 +46,7 @@
       }
     }
   
+    // Watch for wallet errors and trigger auto-dismiss
     $: if ($wallet.error !== null) handleError();
   
     onDestroy(() => {

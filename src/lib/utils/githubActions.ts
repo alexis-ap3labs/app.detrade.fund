@@ -7,7 +7,7 @@ interface GitHubActionParams {
 }
 
 /**
- * Déclenche une GitHub Action pour un vault spécifique après une transaction
+ * Triggers a GitHub Action for a specific vault after a transaction
  */
 export async function triggerGitHubAction(params: GitHubActionParams): Promise<void> {
   try {
@@ -27,7 +27,7 @@ export async function triggerGitHubAction(params: GitHubActionParams): Promise<v
     if (!response.ok) {
       const errorData = await response.json();
       console.error('Failed to trigger GitHub Action:', errorData);
-      // Ne pas throw d'erreur pour ne pas interrompre le flux utilisateur
+      // Don't throw error to avoid interrupting user flow
       return;
     }
 
@@ -35,6 +35,6 @@ export async function triggerGitHubAction(params: GitHubActionParams): Promise<v
     console.log('GitHub Action triggered successfully:', result);
   } catch (error) {
     console.error('Error triggering GitHub Action:', error);
-    // Ne pas throw d'erreur pour ne pas interrompre le flux utilisateur
+    // Don't throw error to avoid interrupting user flow
   }
 } 

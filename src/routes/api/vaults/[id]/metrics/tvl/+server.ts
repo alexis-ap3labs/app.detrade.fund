@@ -18,18 +18,18 @@ interface RawEvent {
 type TimeFilter = 'all' | '3m' | '1m' | '1w';
 
 function divideBigNumber(value: string, decimals: number): string {
-  // Convertir en BigInt pour éviter les problèmes de précision
+  // Convert to BigInt to avoid precision issues
   const valueBigInt = BigInt(value);
   const divisor = BigInt(10) ** BigInt(decimals);
   
-  // Calculer la partie entière et décimale
+  // Calculate integer and decimal parts
   const integerPart = valueBigInt / divisor;
   const decimalPart = valueBigInt % divisor;
   
-  // Formater la partie décimale avec le bon nombre de zéros
+  // Format the decimal part with the correct number of zeros
   const decimalStr = decimalPart.toString().padStart(decimals, '0');
   
-  // Retourner le nombre complet avec toutes les décimales
+  // Return the complete number with all decimals
   return `${integerPart}.${decimalStr}`;
 }
 
@@ -37,13 +37,13 @@ function isValidTimestamp(timestamp: number): boolean {
   return !isNaN(timestamp) && 
          timestamp > 0 && 
          timestamp < 2147483647 && // Max 32-bit integer
-         timestamp < Math.floor(Date.now() / 1000) + (365 * 24 * 60 * 60); // Pas plus d'un an dans le futur
+         timestamp < Math.floor(Date.now() / 1000) + (365 * 24 * 60 * 60); // Not more than a year in the future
 }
 
 function formatISODate(timestamp: number): string {
   if (!isValidTimestamp(timestamp)) {
     console.error('Invalid timestamp:', timestamp);
-    return new Date().toISOString(); // Retourne la date actuelle en cas d'erreur
+    return new Date().toISOString(); // Return current date on error
   }
   return new Date(timestamp * 1000).toISOString();
 }
@@ -71,30 +71,30 @@ export const GET: RequestHandler = async ({ url, params }) => {
     
     console.log('Fetching TVL data for vault:', id, 'with time filter:', timeFilter, 'latest:', latest);
     
-    // Vérifier si le vault existe
+    // Check if vault exists
     const vault = ALL_VAULTS.find(v => v.id === id);
     if (!vault) {
       return json({ error: 'Vault not found' }, { status: 404 });
     }
 
-    // Récupérer les décimales du token sous-jacent
+    // Get underlying token decimals
     const decimals = vault.underlyingTokenDecimals;
     if (!decimals) {
       console.error(`No decimals found for vault ${id}`);
       return json({ error: 'Invalid vault configuration' }, { status: 500 });
     }
 
-    // Vérifier l'URI MongoDB
+    // Check MongoDB URI
     if (!env.MONGO_URI) {
       return json({ error: 'Database configuration error' }, { status: 500 });
     }
 
-    // Connexion à MongoDB
+    // Connect to MongoDB
     const client = await clientPromise;
     const db = client.db(id);
     const collection = db.collection('subgraph');
     
-    // Récupérer les événements pertinents
+    // Get relevant events
     const events = await collection
       .find({ 
         $or: [
@@ -107,7 +107,7 @@ export const GET: RequestHandler = async ({ url, params }) => {
       .sort({ blockTimestamp: -1 })
       .toArray();
 
-    // Transformer les événements
+    // Transform events
     const rawEvents: RawEvent[] = events
       .filter(event => event.blockTimestamp && event.totalAssets && isValidTimestamp(event.blockTimestamp))
       .reduce((acc: RawEvent[], event) => {
@@ -118,17 +118,17 @@ export const GET: RequestHandler = async ({ url, params }) => {
         if (existingEvent) {
           console.log(`Found existing event at same timestamp: type=${existingEvent.type}, totalAssets=${existingEvent.totalAssets}`);
           
-          // Si on a déjà un événement à ce timestamp, on doit décider lequel garder
-          // Priorité : settleRedeem > settleDeposit > totalAssetsUpdated
-          // (Les événements de règlement reflètent l'état final après la transaction)
+          // If we already have an event at this timestamp, we need to decide which one to keep
+          // Priority: settleRedeem > settleDeposit > totalAssetsUpdated
+          // (Settlement events reflect the final state after the transaction)
           let shouldReplace = false;
           
           if (event.type === 'settleRedeem') {
-            // settleRedeem a la priorité sur tout
+            // settleRedeem has priority over everything
             shouldReplace = true;
             console.log('Replacing with settleRedeem (highest priority)');
           } else if (event.type === 'settleDeposit' && existingEvent.type === 'totalAssetsUpdated') {
-            // settleDeposit a la priorité sur totalAssetsUpdated
+            // settleDeposit has priority over totalAssetsUpdated
             shouldReplace = true;
             console.log('Replacing totalAssetsUpdated with settleDeposit');
           }
@@ -145,7 +145,7 @@ export const GET: RequestHandler = async ({ url, params }) => {
             console.log('Keeping existing event (higher or equal priority)');
           }
         } else {
-          // Nouveau timestamp, on ajoute l'événement
+          // New timestamp, add the event
           acc.push({
             blockTimestamp: event.blockTimestamp,
             totalAssets: parseFloat(divideBigNumber(event.totalAssets || '0', decimals)),
@@ -156,7 +156,7 @@ export const GET: RequestHandler = async ({ url, params }) => {
         return acc;
       }, []);
 
-    // Si latest=true, retourner uniquement le dernier TVL
+    // If latest=true, return only the last TVL
     if (latest) {
       const lastEvent = rawEvents[0];
       if (!lastEvent) {
@@ -170,11 +170,11 @@ export const GET: RequestHandler = async ({ url, params }) => {
       });
     }
 
-    // Filtrer les événements selon le timeFilter
+    // Filter events according to timeFilter
     const startTimestamp = getStartTimestamp(timeFilter);
     const filteredEvents = rawEvents.filter(event => event.blockTimestamp >= startTimestamp);
 
-    // NE PAS interpoler, juste dédupliquer par timestamp
+    // DO NOT interpolate, just deduplicate by timestamp
     const sortedEvents = [...filteredEvents].sort((a, b) => a.blockTimestamp - b.blockTimestamp);
     const uniqueEventsMap = new Map<number, number>();
     for (const event of sortedEvents) {

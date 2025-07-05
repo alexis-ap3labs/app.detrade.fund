@@ -8,7 +8,7 @@
   
   export let vaultId: string;
 
-  // Trouver le vault courant
+  // Find the current vault
   $: currentVault = ALL_VAULTS.find(v => v.id === vaultId);
   let mounted = false;
 
@@ -18,37 +18,37 @@
     try {
       compositionStore.setLoading(true);
 
-      // Lancer les deux fetch en parallèle
+      // Launch both fetch requests in parallel
       const [oracleRes, debankRes] = await Promise.all([
         fetch(`/api/oracle/compositions/${vaultId}`),
         fetch(`/api/debank/compositions/${vaultId}`)
       ]);
 
-      // Récupérer les données (ou undefined si erreur)
+      // Retrieve data (or undefined if error)
       const oracleData = oracleRes.ok ? await oracleRes.json() : undefined;
       const debankData = debankRes.ok ? await debankRes.json() : undefined;
 
-      // Extraire les compositions valides
+      // Extract valid compositions
       const oracleComp = oracleData?.compositions;
       const debankComp = debankData?.compositions;
 
-      // Si aucun résultat, erreur
+      // If no results, error
       if (!oracleComp && !debankComp) {
         throw new Error('No composition data found in either source');
       }
 
-      // Si un seul résultat, on le prend
+      // If only one result, use it
       let finalComp = oracleComp || debankComp;
 
-      // Si les deux existent, comparer les timestamps
+      // If both exist, compare timestamps
       if (oracleComp && debankComp) {
-        // On convertit les deux timestamps en Date pour comparer
+        // Convert both timestamps to Date for comparison
         const t1 = new Date(oracleComp.timestamp.replace(' UTC', 'Z'));
         const t2 = new Date(debankComp.timestamp.replace(' UTC', 'Z'));
         finalComp = t1 > t2 ? oracleComp : debankComp;
       }
 
-      // Vérifier que le résultat est valide
+      // Verify that the result is valid
       if (!finalComp || !finalComp.allocation) {
         throw new Error('Invalid composition data format');
       }
@@ -90,29 +90,29 @@
     return date.toLocaleString();
   }
 
-  // Générer les données triées avec validation
+  // Generate sorted data with validation
   $: sortedAlloc = $compositionStore.compositions[vaultId]?.allocation
     ? Object.entries($compositionStore.compositions[vaultId]?.allocation || {})
         .filter(([, data]) => !isNaN(data.percentage) && data.percentage >= 0)
         .sort(([, a], [, b]) => b.percentage - a.percentage)
     : [];
 
-  // Données pour le chart
+  // Data for chart
   $: chartData = {
     labels: sortedAlloc.map(([protocol]) => protocol),
     datasets: [{
       data: sortedAlloc.map(([, data]) => data.percentage),
       backgroundColor: [
-        '#E3F2FD', // bleu très pâle
-        '#BBDEFB', // bleu très clair
-        '#81D4FA', // bleu pâle
-        '#64B5F6', // bleu clair
-        '#42A5F5', // bleu vif
-        '#1E88E5', // bleu principal
-        '#2196F3', // bleu medium
-        '#1565C0', // bleu foncé
-        '#90CAF9', // bleu pastel
-        '#4FC3F7', // bleu ciel
+        '#E3F2FD', // very pale blue
+        '#BBDEFB', // very light blue
+        '#81D4FA', // pale blue
+        '#64B5F6', // light blue
+        '#42A5F5', // bright blue
+        '#1E88E5', // main blue
+        '#2196F3', // medium blue
+        '#1565C0', // dark blue
+        '#90CAF9', // pastel blue
+        '#4FC3F7', // sky blue
       ],
       borderWidth: 0,
     }]
@@ -135,11 +135,11 @@
             if (!alloc) return '';
             // If value is available, show it with the underlying token symbol
             if (alloc.value_usdc !== undefined) {
-              // Si c'est une valeur en WETH, l'afficher directement
+              // If it's a WETH value, display it directly
               if (alloc.value_usdc.includes('WETH')) {
                 return alloc.value_usdc;
               }
-              // Sinon, formater en USDC
+              // Otherwise, format as USDC
               return `${parseFloat(alloc.value_usdc).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} USDC`;
             }
             return '';

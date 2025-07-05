@@ -2,6 +2,7 @@ import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 import type { Writable } from 'svelte/store';
 
+// Store for managing 30-day APR data by vault
 interface ThirtyDayAprData {
   apr: number | null;
   timestamp: string;
@@ -63,6 +64,7 @@ function createThirtyDayAprStore(): ThirtyDayAprStore {
         }
       }));
     },
+    // Fetch 30-day APR data for a vault
     fetchThirtyDayApr: async (vaultId: string) => {
       if (!browser) return;
 

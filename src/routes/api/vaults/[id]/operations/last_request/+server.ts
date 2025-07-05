@@ -4,7 +4,7 @@ import clientPromise from '$lib/mongodb';
 import { env } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
 
-// Cache mémoire pour les requêtes last_request (clé: `${id}_${userAddress}`)
+// Memory cache for last_request queries (key: `${id}_${userAddress}`)
 const lastRequestCache = new Map<string, { data: any, timestamp: number }>();
 const CACHE_DURATION = 30 * 1000; // 30 secondes
 
@@ -25,23 +25,23 @@ export const GET: RequestHandler = async ({ url, params }) => {
     
     console.log('Fetching last request IDs for vault:', id, 'user:', userAddress);
     
-    // Vérifier si le vault existe
+    // Check if vault exists
     const vault = ALL_VAULTS.find(v => v.id === id);
     if (!vault) {
       return json({ error: 'Vault not found' }, { status: 404 });
     }
 
-    // Vérifier l'URI MongoDB
+    // Check MongoDB URI
     if (!env.MONGO_URI) {
       return json({ error: 'Database configuration error' }, { status: 500 });
     }
 
-    // Connexion à MongoDB
+    // Connect to MongoDB
     const client = await clientPromise;
     const db = client.db(id);
     const collection = db.collection('subgraph');
     
-    // Récupérer le dernier deposit request
+    // Get the last deposit request
     const lastDeposit = await collection
       .findOne(
         { 
@@ -51,7 +51,7 @@ export const GET: RequestHandler = async ({ url, params }) => {
         { sort: { blockTimestamp: -1 } }
       );
 
-    // Récupérer le dernier redeem request
+    // Get the last redeem request
     const lastRedeem = await collection
       .findOne(
         { 

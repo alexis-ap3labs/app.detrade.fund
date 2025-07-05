@@ -1,4 +1,5 @@
 <script lang="ts">
+  // Main page with vaults listing
   import Header from '$lib/components/Header.svelte';
   import Footer from '$lib/components/Footer.svelte';
   import VaultsCards from '$lib/components/VaultsCards.svelte';
@@ -9,11 +10,11 @@
   <title>DeTrade – Vaults</title>
   <meta name="keywords" content="DeTrade, DeFi, Trading, Cryptocurrency, Blockchain, Finance, Decentralized, Yield Farming, Automated Trading, Digital Assets, Lagoon Protocol, DeFi Vaults, Yield Vaults, USDC Vault, EURC Vault, ETH Vault, Stablecoin Yield, Ethereum Yield, High-Yield Vaults, Automated Vaults, Smart Vaults" />
   <meta name="description" content="Actively managed vaults powered by real-time data and protocol integrations. Built for performance and open to all. Access high-yield DeFi strategies with institutional-grade security." />
-  <link rel="canonical" href="https://app2-gules-sigma.vercel.app" />
+  <link rel="canonical" href="https://app.detrade.fund" />
   
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://app2-gules-sigma.vercel.app" />
+  <meta property="og:url" content="https://app.detrade.fund" />
   <meta property="og:title" content="DeTrade – Vaults" />
   <meta property="og:description" content="Actively managed vaults powered by real-time data and protocol integrations. Built for performance and open to all. Access high-yield DeFi strategies with institutional-grade security." />
   <meta property="og:image" content="/og-image.png" />
@@ -23,7 +24,7 @@
   
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:domain" content="app2-gules-sigma.vercel.app" />
+  <meta name="twitter:domain" content="app.detrade.fund" />
   <meta name="twitter:title" content="DeTrade – Vaults" />
   <meta name="twitter:description" content="Actively managed vaults powered by real-time data and protocol integrations. Built for performance and open to all." />
   <meta property="twitter:image" content="/og-image.png" />

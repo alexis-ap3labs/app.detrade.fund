@@ -1,6 +1,7 @@
 <script>
   import { fade } from 'svelte/transition';
   
+  // Social media and external links configuration
   const socialLinks = [
     {
       name: 'X',
@@ -24,6 +25,7 @@
     }
   ];
 
+  // Navigation links for the right side of footer
   const rightLinks = [
     {
       name: 'Docs',

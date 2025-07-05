@@ -1,6 +1,7 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 
+// Store for managing PPS (Price Per Share) data and history by vault
 export interface PpsData {
   pps: number;
   timestamp: string;
@@ -78,6 +79,7 @@ function createPpsStore() {
         }
       }));
     },
+    // Fetch PPS history for a vault with timeframe filter
     getPpsHistory: async (vaultId: string, timeframe: 'all' | '3m' | '1m' | '1w'): Promise<PpsHistoryResponse> => {
       if (!browser) {
         return { pps: [] };
@@ -113,6 +115,7 @@ function createPpsStore() {
         return { pps: [] };
       }
     },
+    // Get latest PPS data for a vault
     getLatestPps: async (vaultId: string): Promise<PpsHistoryData | null> => {
       if (!browser) {
         return null;

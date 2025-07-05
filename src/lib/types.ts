@@ -1,3 +1,4 @@
+// Core vault type definition with all required properties
 export type Vault = {
   id: string;
   name: string;

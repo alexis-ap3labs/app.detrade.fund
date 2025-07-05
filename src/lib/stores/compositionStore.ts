@@ -1,6 +1,7 @@
 import { writable } from 'svelte/store';
 import type { Writable } from 'svelte/store';
 
+// Store for managing vault composition data
 export interface Allocation {
   percentage: number;
   value_usdc: string;

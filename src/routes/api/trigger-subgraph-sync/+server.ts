@@ -11,7 +11,7 @@ export const POST: RequestHandler = async ({ request }) => {
     const repo = 'subgraph';
     const ref = 'master';
 
-    // Déterminer le workflow selon le repoName
+    // Determine the workflow based on repoName
     let workflowId: string;
     if (repoName === 'detrade-core-usdc') {
       workflowId = 'sync-scheduler-usdc.yml';

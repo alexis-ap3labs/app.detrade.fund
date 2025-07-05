@@ -1,6 +1,7 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 
+// Unified store for managing all vault metrics (TVL, APR, composition)
 export interface VaultMetrics {
   tvl: {
     value: string;
@@ -155,7 +156,7 @@ function createVaultStore() {
       }));
     },
     
-    // Fetch methods
+    // Fetch all metrics for a vault in parallel
     fetchAllMetrics: async (vaultId: string) => {
       if (!browser) return;
       

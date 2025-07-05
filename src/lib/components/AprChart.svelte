@@ -49,7 +49,7 @@
     isDropdownOpen = !isDropdownOpen;
   }
 
-  // Fermer le dropdown si on clique en dehors
+  // Close dropdown if click outside
   function handleClickOutside(event: MouseEvent) {
     const target = event.target as HTMLElement;
     if (!target.closest('.timeframe-selector')) {
@@ -88,12 +88,12 @@
   $: xStepSize = timeframe === '1w' ? 1 : timeframe === '30d' ? 2 : timeframe === '90d' ? 3 : 5;
 
   $: yMin = 0;
-  $: yMax = Math.max(...(($apr[vaultId] as AprData)?.timeSeries || []).map(d => d.apr)) * 1.1; // 10% au dessus du max
+  $: yMax = Math.max(...(($apr[vaultId] as AprData)?.timeSeries || []).map(d => d.apr)) * 1.1; // 10% above max
 
   function getGradient(ctx: CanvasRenderingContext2D, chartArea: { top: number; bottom: number }) {
     const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-    gradient.addColorStop(0, 'rgba(59, 130, 246, 0.25)'); // bleu plus intense en haut
-    gradient.addColorStop(1, 'rgba(59, 130, 246, 0.02)'); // quasi transparent en bas
+    gradient.addColorStop(0, 'rgba(59, 130, 246, 0.25)'); // more intense blue at top
+    gradient.addColorStop(1, 'rgba(59, 130, 246, 0.02)'); // almost transparent at bottom
     return gradient;
   }
 
@@ -196,14 +196,14 @@
       const yAxis = chart.scales['y'];
       const ctx = chart.ctx;
 
-      // Range minimum pour éviter les labels identiques
+      // Minimum range to avoid identical labels
       let min = yAxis.min;
       let max = yAxis.max;
       if (max - min < 1) {
         max = min + 1;
       }
 
-      // 3 positions à 25%, 50%, 75% de l'axe
+      // 3 positions at 25%, 50%, 75% of the axis
       const positions = [0.25, 0.5, 0.75];
       const ticks = positions.map(p => min + p * (max - min));
 
@@ -300,7 +300,7 @@
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // Tooltip style à droite, très compact, SOUS la ligne
+      // Tooltip style on the right, very compact, BELOW the line
       ctx.font = '11px sans-serif';
       ctx.textBaseline = 'middle';
       ctx.textAlign = 'left';
@@ -311,9 +311,9 @@
       const rectHeight = 16;
       const rectWidth = textWidth + paddingX * 2;
       const x = chartArea.right - rectWidth - 8;
-      const yRect = y + 6; // 6px sous la ligne
+      const yRect = y + 6; // 6px below the line
 
-      // Ombre légère
+      // Light shadow
       ctx.save();
       ctx.shadowColor = 'rgba(0,0,0,0.10)';
       ctx.shadowBlur = 2;
@@ -326,7 +326,7 @@
       ctx.stroke();
       ctx.restore();
 
-      // Texte
+      // Text
       ctx.fillStyle = '#fff';
       ctx.font = '11px sans-serif';
       ctx.textAlign = 'left';

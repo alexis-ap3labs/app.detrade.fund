@@ -8,7 +8,7 @@ export const GET: RequestHandler = async ({ url, params }) => {
   try {
     const { id } = params;
     
-    // Vérifier si le vault existe et est actif
+    // Check if vault exists and is active
     const vault = ALL_VAULTS.find(v => v.id === id);
     if (!vault) {
       return json({ error: 'Vault not found' }, { status: 404 });
@@ -17,17 +17,17 @@ export const GET: RequestHandler = async ({ url, params }) => {
       return json({ error: 'Vault is not active' }, { status: 400 });
     }
 
-    // Vérifier l'URI MongoDB
+    // Check MongoDB URI
     if (!env.MONGO_URI) {
       return json({ error: 'Database configuration error' }, { status: 500 });
     }
 
-    // Connexion à MongoDB
+    // Connect to MongoDB
     const client = await clientPromise;
     const db = client.db(id);
     const collection = db.collection('subgraph');
 
-    // Récupérer tous les événements totalAssetsUpdated
+    // Get all totalAssetsUpdated events
     const totalAssetsEvents = await collection
       .find({ 
         type: 'totalAssetsUpdated',
@@ -36,11 +36,11 @@ export const GET: RequestHandler = async ({ url, params }) => {
       .sort({ blockTimestamp: -1 })
       .toArray();
 
-    // Transformer les événements et récupérer les événements associés
+    // Transform events and get associated events
     const allEvents = [];
     
     for (const event of totalAssetsEvents) {
-      // Obtenir le hash de transaction
+      // Get transaction hash
       let transactionHash = '';
       if ('transactionHash' in event && event.transactionHash) {
         transactionHash = event.transactionHash;
@@ -52,7 +52,7 @@ export const GET: RequestHandler = async ({ url, params }) => {
       }
 
       if (transactionHash) {
-        // Récupérer tous les événements avec ce hash
+        // Get all events with this hash
         const relatedEvents = await collection
           .find({
             $or: [
@@ -62,7 +62,7 @@ export const GET: RequestHandler = async ({ url, params }) => {
           })
           .toArray();
 
-        // Calculer le PPS
+        // Calculate PPS
         const ppsResult = calculatePps(event, relatedEvents, vault.underlyingTokenDecimals);
         if (ppsResult) {
           allEvents.push({
@@ -82,7 +82,7 @@ export const GET: RequestHandler = async ({ url, params }) => {
       }
     }
 
-    // Calculer le netAPR en comparant le point le plus ancien avec le plus récent
+    // Calculate net APR by comparing the oldest point with the most recent
     const result = calculateNetApr(allEvents);
 
     return json(result);
@@ -215,31 +215,31 @@ function calculateNetApr(events: any[]): {
     };
   }
 
-  // Trier les événements par date (du plus ancien au plus récent)
+  // Sort events by date (from oldest to newest)
   const sortedEvents = [...events].sort((a, b) => a.blockTimestamp - b.blockTimestamp);
   
-  // Prendre le premier et le dernier événement
+  // Take the first and last event
   const oldestEvent = sortedEvents[0];
   const newestEvent = sortedEvents[sortedEvents.length - 1];
   
-  // Calculer le rendement total avec une précision de 6 décimales
+  // Calculate total return with 6 decimal precision
   const oldestPps = Number(oldestEvent.ppsFormatted.toFixed(6));
   const newestPps = Number(newestEvent.ppsFormatted.toFixed(6));
   const totalReturn = Number(((newestPps - oldestPps) / oldestPps).toFixed(6));
   
-  // Calculer la durée en secondes
+  // Calculate duration in seconds
   const durationInSeconds = newestEvent.blockTimestamp - oldestEvent.blockTimestamp;
-  // Calculer la durée en années (même si très courte)
+  // Calculate duration in years (even if very short)
   const durationInYears = Number((durationInSeconds / (365 * 24 * 60 * 60)).toFixed(8));
   const durationInDays = Number((durationInSeconds / (24 * 60 * 60)).toFixed(4));
   
-  // Calculer l'APR annualisé
+  // Calculate annualized APR
   let apr;
   if (durationInYears >= 1) {
-    // Si la durée est supérieure ou égale à 1 an, on calcule le rendement annualisé moyen
+    // If duration is greater than or equal to 1 year, calculate average annualized return
     apr = Number(((Math.pow(1 + totalReturn, 1 / durationInYears) - 1) * 100).toFixed(2));
   } else {
-    // Si la durée est inférieure à 1 an, on extrapole le rendement sur une année
+    // If duration is less than 1 year, extrapolate return over one year
     apr = Number(((totalReturn / durationInYears) * 100).toFixed(2));
   }
   
@@ -247,7 +247,7 @@ function calculateNetApr(events: any[]): {
     apr,
     startDate: new Date(oldestEvent.blockTimestamp * 1000).toISOString(),
     endDate: new Date(newestEvent.blockTimestamp * 1000).toISOString(),
-    totalReturn: Number((totalReturn * 100).toFixed(6)), // Convertir en pourcentage avec 6 décimales
+    totalReturn: Number((totalReturn * 100).toFixed(6)), // Convert to percentage with 6 decimals
     oldestPps,
     newestPps,
     durationInDays: Math.round(durationInDays),
@@ -267,8 +267,8 @@ function calculateNetApr(events: any[]): {
         durationInYears: durationInYears,
         durationInSeconds: durationInSeconds,
         aprFormula: durationInYears >= 1 
-          ? `(1 + ${(totalReturn * 100).toFixed(6)}%)^(1/${durationInYears.toFixed(2)}) - 1 = ${apr}% (rendement annualisé moyen)`
-          : `(${(totalReturn * 100).toFixed(6)}% / ${durationInYears.toFixed(2)} years) * 100 = ${apr}% (extrapolé sur 1 an)`
+          ? `(1 + ${(totalReturn * 100).toFixed(6)}%)^(1/${durationInYears.toFixed(2)}) - 1 = ${apr}% (average annualized return)`
+          : `(${(totalReturn * 100).toFixed(6)}% / ${durationInYears.toFixed(2)} years) * 100 = ${apr}% (extrapolated over 1 year)`
       }
     }
   };

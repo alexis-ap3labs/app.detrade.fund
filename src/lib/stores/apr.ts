@@ -45,7 +45,7 @@ function createAprStore() {
     },
     reset: () => set({}),
     refreshPps: async (vaultId: string) => {
-      // Appelle l'API et met à jour le store comme tu veux
+      // Call the API and update the store as needed
     }
   };
 }

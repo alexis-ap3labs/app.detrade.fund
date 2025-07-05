@@ -10,12 +10,12 @@ if (!MONGO_URI) {
 
 const client = new MongoClient(MONGO_URI);
 
-// Constantes pour la pagination
+// Constants for pagination
 const MAX_LIMIT = 100;
 const DEFAULT_LIMIT = 10;
 const DEFAULT_PAGE = 1;
 
-// Mapping des types d'événements
+// Event type mapping
 const typeMapping: Record<string, string> = {
   'Deposit': 'depositRequest',
   'Withdraw': 'redeemRequest',
@@ -23,9 +23,9 @@ const typeMapping: Record<string, string> = {
   'Settlement': 'settlementRequest'
 };
 
-// Fonction pour extraire le hash de la transaction de l'ID
+// Function to extract transaction hash from ID
 function extractTransactionHashFromId(id: string): string | null {
-  // L'ID est au format: 0x...hash...000000 ou 0x...hash...aa010000
+  // ID format: 0x...hash...000000 or 0x...hash...aa010000
   const match = id.match(/^(0x[a-f0-9]{64})/);
   return match ? match[1] : null;
 }
@@ -47,25 +47,25 @@ export const GET: RequestHandler = async ({ params, url }) => {
     const db = client.db(id);
     const collection = db.collection('subgraph');
 
-    // Construire la requête de base
+    // Build base query
     let query: any = {};
 
-    // Si un type est spécifié, on ajoute les types correspondants
+    // If a type is specified, add corresponding types
     if (type) {
-      // Si le type contient une virgule, on le split pour avoir plusieurs types
+      // If the type contains a comma, split to get multiple types
       if (type.includes(',')) {
         const types = type.split(',');
         query.type = { $in: types };
       }
-      // Pour les dépôts, on inclut aussi les règlements de dépôt
+      // For deposits, also include deposit settlements
       else if (type === 'depositRequest') {
         query.type = { $in: ['depositRequest', 'settleDeposit'] };
       }
-      // Pour les retraits, on inclut aussi les règlements de retrait
+      // For withdrawals, also include redeem settlements
       else if (type === 'redeemRequest') {
         query.type = { $in: ['redeemRequest', 'settleRedeem'] };
       }
-      // Pour les autres types, on garde le comportement normal
+      // For other types, keep normal behavior
       else {
         query.type = type;
       }
@@ -73,14 +73,14 @@ export const GET: RequestHandler = async ({ params, url }) => {
 
     console.log('Query:', query);
 
-    // D'abord, listons tous les types d'événements uniques pour debug
+    // First, list all unique event types for debug
     const uniqueTypes = await collection.distinct('type');
     console.log('Available event types in database:', uniqueTypes);
 
-    // Calculer le nombre total d'activités
+    // Calculate total number of activities
     const total = await collection.countDocuments(query);
 
-    // Récupérer les activités avec pagination
+    // Retrieve activities with pagination
     const events = await collection
       .find(query)
       .sort({ blockTimestamp: -1 })
@@ -90,7 +90,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
 
     console.log('Raw events:', JSON.stringify(events, null, 2));
 
-    // Transformer les événements pour correspondre à l'interface Activity
+    // Transform events to match Activity interface
     const transformedEvents = events.map(event => {
       console.log('Raw event:', event); // Debug log
       return {
@@ -100,7 +100,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
         createdAt: new Date(parseInt(event.blockTimestamp) * 1000).toISOString(),
         amount: event.amount,
         assets: event.assets,
-        shares: event.shares || event.amount, // Utiliser amount comme fallback pour shares
+        shares: event.shares || event.amount, // Use amount as fallback for shares
         totalAssets: event.totalAssets,
         sharesBurned: event.sharesBurned,
         sharesMinted: event.sharesMinted,

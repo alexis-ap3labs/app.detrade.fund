@@ -1,4 +1,4 @@
-// Types de contexte pour les logs
+// Context types for logs
 export enum LogContext {
   UI = 'UI',
   WALLET = 'WALLET',
@@ -7,7 +7,7 @@ export enum LogContext {
   ERROR = 'ERROR'
 }
 
-// Interface pour les données de log
+// Interface for log data
 interface LogData {
   context: LogContext;
   message: string;
@@ -15,7 +15,7 @@ interface LogData {
   error?: Error;
 }
 
-// Fonction de log principale
+// Main logging function
 export const logger = {
   info: (message: string, data?: Omit<LogData, 'message'>) => {
     console.log(`[INFO] ${message}`, data);

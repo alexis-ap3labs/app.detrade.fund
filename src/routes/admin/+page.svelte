@@ -75,13 +75,13 @@
   }
 
   function validateAprFormat(value: string): boolean {
-    // Vérifie le format X.XX ou XX.XX au moment de la validation
+    // Validates X.XX or XX.XX format during validation
     const regex = /^\d+\.\d{2}$/;
     return regex.test(value);
   }
 
   async function handleSubmit() {
-    // Validation du format avant la conversion
+    // Format validation before conversion
     if (!validateAprFormat(grossAprValue) || !validateAprFormat(netAprValue)) {
       submitError = 'APR values must have exactly two decimal places (e.g. 10.00 or 8.50)';
       return;
@@ -133,10 +133,10 @@
     }
   }
 
-  // Simplification de la fonction handleInput pour permettre la saisie libre
+  // Simplified handleInput function to allow free input
   function handleInput(event: Event, type: 'gross' | 'net') {
     const input = event.target as HTMLInputElement;
-    let value = input.value.replace(/[^\d.]/g, ''); // Garde uniquement les chiffres et le point
+    let value = input.value.replace(/[^\d.]/g, ''); // Keep only digits and decimal point
 
     if (type === 'gross') {
       grossAprValue = value;

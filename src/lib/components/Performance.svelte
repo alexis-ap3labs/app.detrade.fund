@@ -9,32 +9,38 @@
 
   export let vaultId: string;
 
+  // APR data state management
   let apr30d: string | null = null;
   let apr7d: string | null = null;
   let netAprValue: string | null = null;
+  
+  // Vault configuration data
   let performanceFee: string = ALL_VAULTS.find(vault => vault.id === vaultId)?.performanceFee || '10%';
   let feeReceiver: string = ALL_VAULTS.find(vault => vault.id === vaultId)?.feeReceiver || '0x1234...5678';
 
-  // Cache system
+  // Cache system to reduce API calls (5 minute cache duration)
   const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
   let cache = {
     data: null as any,
     timestamp: 0
   };
 
+  // Format blockchain addresses for display (first 6 + last 4 characters)
   function formatAddress(address: string): string {
     if (!address) return '';
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   }
 
+  // Generate blockchain explorer URLs (BaseScan for Base network)
   function getExplorerUrl(address: string): string {
     return `https://basescan.org/address/${address}`;
   }
 
+  // Fetch APR data from multiple endpoints with caching
   async function fetchAprData() {
     if (!browser || !mounted) return;
     
-    // Check cache
+    // Check cache validity first
     const now = Date.now();
     if (cache.data && (now - cache.timestamp) < CACHE_DURATION) {
       apr30d = cache.data.apr30d;
@@ -44,7 +50,7 @@
     }
 
     try {
-      // Fetch all data in parallel
+      // Fetch all APR metrics in parallel for better performance
       const [response30d, response7d, responseNet] = await Promise.all([
         fetch(`/api/vaults/${vaultId}/metrics/30d_apr`),
         fetch(`/api/vaults/${vaultId}/metrics/7d_apr`),
@@ -57,10 +63,10 @@
         responseNet.json()
       ]);
 
-      // Process 30D APR
+      // Process 30D APR data
       apr30d = data30d.apr ? `${parseFloat(data30d.apr).toFixed(2)}%` : null;
 
-      // Process 7D APR
+      // Process 7D APR data and update store
       if (data7d.apr) {
         sevenDayApr.setApr(vaultId, data7d.apr, new Date().toISOString());
         apr7d = `${parseFloat(data7d.apr).toFixed(2)}%`;
@@ -69,10 +75,10 @@
         apr7d = null;
       }
 
-      // Process Net APR
+      // Process Net APR data (since inception)
       netAprValue = dataNet.apr ? `${parseFloat(dataNet.apr).toFixed(2)}%` : null;
 
-      // Update cache
+      // Update cache with fresh data
       cache = {
         data: { apr30d, apr7d, netAprValue },
         timestamp: now
@@ -90,7 +96,7 @@
     fetchAprData();
   });
 
-  // Only update when vaultId changes, but only on the client side
+  // Re-fetch data when vaultId changes (client-side only)
   $: if (browser && mounted && vaultId) {
     fetchAprData();
   }
@@ -303,9 +309,10 @@
   -webkit-text-fill-color: transparent;
   background-clip: text;
   font-weight: 600;
-  color: transparent;
+  color: transparent; /* Fallback for browsers that don't support background-clip */
 }
 
+/* Interactive tooltip component for APR explanations */
 .info-tooltip {
   position: relative;
   display: inline-flex;
@@ -323,6 +330,7 @@
   color: rgba(255, 255, 255, 0.8);
 }
 
+/* Tooltip content with backdrop blur and positioning */
 .tooltip-content {
   position: absolute;
   bottom: calc(100% + 10px);
@@ -355,12 +363,14 @@
   color: rgba(255, 255, 255, 0.7);
 }
 
+/* Show tooltip on hover */
 .info-tooltip:hover .tooltip-content {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
 }
 
+/* Tooltip arrow pointing downward */
 .info-tooltip .tooltip-content::after {
   content: '';
   position: absolute;
@@ -372,10 +382,12 @@
   border-color: rgba(0, 0, 0, 0.9) transparent transparent transparent;
 }
 
+/* Responsive design for mobile devices */
 @media (max-width: 900px) {
   .apr-grid, .fees-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr; /* Stack items vertically on mobile */
   }
+  
   .perf-box {
     padding: 1.2rem 1rem;
   }
@@ -414,6 +426,7 @@
     margin-left: 0.25rem;
   }
 
+  /* Adjust tooltip positioning for mobile */
   .tooltip-content {
     left: 50%;
     transform: translateX(-50%);

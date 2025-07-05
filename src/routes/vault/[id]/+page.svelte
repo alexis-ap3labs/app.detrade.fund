@@ -19,24 +19,24 @@
   import Activities from '$lib/components/Activities.svelte';
   import { vaultStore } from '$lib/stores/vaultStore';
 
-  // Récupérer les données du serveur
+  // Get data from server
   export let data;
 
-  // Récupérer l'ID du vault depuis l'URL
+  // Get vault ID from URL
   const vaultId = $page.params.id;
   
-  // Utiliser le vault du serveur
+  // Use vault from server data
   const vault = data.vault;
   const network = vault ? {
     icon: vault.networkIcon,
     name: vault.network === NETWORKS.BASE.name ? NETWORKS.BASE.name : NETWORKS.ETHEREUM.name
   } : null;
 
-  // Initialiser le vaultStore avec les données du serveur
+  // Initialize vaultStore with server data
   if (vault && data.initialData) {
     const { initialData } = data;
     
-    // Initialiser TVL
+    // Initialize TVL
     if (initialData.tvl?.latestTvl) {
       vaultStore.setTvl(vaultId, {
         tvl: initialData.tvl.latestTvl.totalAssets || '0',
@@ -46,7 +46,7 @@
       });
     }
 
-    // Initialiser Net APR
+    // Initialize Net APR
     if (initialData.netApr) {
       vaultStore.setNetApr(vaultId, {
         apr: initialData.netApr.apr,
@@ -54,7 +54,7 @@
       });
     }
 
-    // Initialiser 30D APR
+    // Initialize 30D APR
     if (initialData.thirtyDayApr) {
       vaultStore.setThirtyDayApr(vaultId, {
         apr: initialData.thirtyDayApr.apr,
@@ -62,7 +62,7 @@
       });
     }
 
-    // Initialiser 7D APR
+    // Initialize 7D APR
     if (initialData.sevenDayApr) {
       vaultStore.setSevenDayApr(vaultId, {
         apr: initialData.sevenDayApr.apr,
@@ -70,23 +70,23 @@
       });
     }
 
-    // Initialiser Composition
+    // Initialize Composition
     if (initialData.composition) {
       vaultStore.setComposition(vaultId, initialData.composition);
     }
   }
 
-  // Métadonnées dynamiques
+  // Dynamic metadata
   $: pageTitle = vault ? `DeTrade – ${vault.name} Vault` : 'DeTrade – Vault';
   $: pageDescription = vault 
     ? `Explore the ${vault.name} Vault on DeTrade. Access institutional-grade DeFi strategies.`
     : 'Access high-yield DeFi strategies with institutional-grade security.';
 
-  // Gestion des images dynamiques
+  // Dynamic image handling
   $: vaultImage = vault 
     ? `/${vault.underlyingToken.toLowerCase()}-vault.png`
     : '/og-image.png';
-  $: fullImageUrl = `https://app2-gules-sigma.vercel.app${vaultImage}`;
+  $: fullImageUrl = `https://app.detrade.fund${vaultImage}`;
 
   onMount(() => {
     if (!vault) {
@@ -99,11 +99,11 @@
   <title>{pageTitle}</title>
   <meta name="description" content={pageDescription} />
   <meta name="keywords" content="DeTrade, DeFi, Trading, Cryptocurrency, Blockchain, Finance, Decentralized, Yield Farming, Automated Trading, Digital Assets, Lagoon Protocol, DeFi Vaults, Yield Vaults, {vault?.underlyingToken || 'USDC'} Vault, Stablecoin Yield, Ethereum Yield, High-Yield Vaults, Automated Vaults, Smart Vaults" />
-  <link rel="canonical" href="https://app2-gules-sigma.vercel.app/vault/{vaultId}" />
+  <link rel="canonical" href="https://app.detrade.fund/vault/{vaultId}" />
   
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://app2-gules-sigma.vercel.app/vault/{vaultId}" />
+  <meta property="og:url" content="https://app.detrade.fund/vault/{vaultId}" />
   <meta property="og:title" content={pageTitle} />
   <meta property="og:description" content={pageDescription} />
   <meta property="og:image" content={fullImageUrl} />
@@ -113,7 +113,7 @@
   
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:domain" content="app2-gules-sigma.vercel.app" />
+  <meta name="twitter:domain" content="app.detrade.fund" />
   <meta name="twitter:title" content={pageTitle} />
   <meta name="twitter:description" content={pageDescription} />
   <meta property="twitter:image" content={fullImageUrl} />

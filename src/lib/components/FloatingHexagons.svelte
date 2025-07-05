@@ -1,37 +1,37 @@
 <script lang="ts">
   import { onMount } from 'svelte';
 
-  // Positions prédéfinies pour les 8 hexagones sur les bords
+  // Predefined positions for the 8 hexagons on the edges
   const positions = [
-    // Coin supérieur gauche
+    // Top left corner
     { x: 5, y: 5 },
-    // Coin supérieur droit
+    // Top right corner
     { x: 85, y: 5 },
-    // Milieu gauche haut
+    // Upper left middle
     { x: 5, y: 30 },
-    // Milieu droit haut
+    // Upper right middle
     { x: 85, y: 30 },
-    // Milieu gauche bas
+    // Lower left middle
     { x: 5, y: 70 },
-    // Milieu droit bas
+    // Lower right middle
     { x: 85, y: 70 },
-    // Haut centre
+    // Top center
     { x: 50, y: 5 },
-    // Bas centre (plus haut pour éviter le footer)
+    // Bottom center (higher to avoid footer)
     { x: 50, y: 70 }
   ];
 
   const hexagons = positions.map((pos, i) => {
-    // Ajouter une légère variation aléatoire
+    // Add slight random variation
     const x = pos.x + (Math.random() * 10 - 5);
     const y = pos.y + (Math.random() * 10 - 5);
     
     return {
       id: i,
-      size: Math.random() * 40 + 100, // Tailles entre 100px et 140px
+      size: Math.random() * 40 + 100, // Sizes between 100px and 140px
       x,
       y,
-      delay: 0.2, // Délai fixe de 1 seconde
+      delay: 0.2, // Fixed delay of 1 second
       duration: Math.random() * 8 + 25,
       rotationX: Math.random() * 360,
       rotationY: Math.random() * 360,
@@ -69,7 +69,7 @@
     pointer-events: none;
     z-index: 0;
     overflow: hidden;
-    padding: 2rem 0; /* Ajout de padding pour éviter les chevauchements */
+    padding: 2rem 0; /* Add padding to avoid overlaps */
   }
 
   .hexagon {

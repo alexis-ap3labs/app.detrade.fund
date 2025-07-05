@@ -1,5 +1,6 @@
 import { base, mainnet } from '@wagmi/core/chains';
 
+// Configuration constants for DeTrade vaults
 // Network constants
 export const NETWORKS = {
   ETHEREUM: {
@@ -12,7 +13,7 @@ export const NETWORKS = {
   }
 } as const;
 
-// Asset constants
+// Asset and icon constants
 export const ASSETS = {
   logos: {
     detrade: '/logo-detrade-white.webp'
@@ -30,7 +31,7 @@ export const ASSETS = {
   }
 } as const;
 
-// Block explorers URLs
+// Block explorer configuration by network
 export const BLOCK_EXPLORERS: Record<string, { name: string; baseUrl: string }> = {
   [NETWORKS.ETHEREUM.name]: {
     name: 'Etherscan',
@@ -42,7 +43,7 @@ export const BLOCK_EXPLORERS: Record<string, { name: string; baseUrl: string }> 
   }
 } as const;
 
-// Liste complète des vaults (privée)
+// Complete list of all vaults (private)
 export const ALL_VAULTS = [
   {
     id: "detrade-core-usdc",

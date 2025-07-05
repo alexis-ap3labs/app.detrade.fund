@@ -2,6 +2,7 @@ import { writable } from 'svelte/store';
 import type { Writable } from 'svelte/store';
 import { browser } from '$app/environment';
 
+// Store for managing net APR data by vault
 interface NetAprData {
   apr: number | null;
   startDate: string;
@@ -66,6 +67,7 @@ function createNetAprStore(): NetAprStore {
         }
       }));
     },
+    // Fetch net APR data for a vault
     fetchNetApr: async (vaultId: string) => {
       if (!browser) return;
       

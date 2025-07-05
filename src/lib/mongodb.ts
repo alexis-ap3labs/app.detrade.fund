@@ -1,6 +1,7 @@
 import { MongoClient } from 'mongodb';
 import { env } from '$env/dynamic/private';
 
+// MongoDB connection management with environment validation
 if (!env.MONGO_URI) {
   throw new Error('Please add your Mongo URI to .env');
 }

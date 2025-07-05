@@ -1,6 +1,7 @@
 import { writable } from 'svelte/store';
 import type { Writable } from 'svelte/store';
 
+// Store for managing latest PPS (Price Per Share) data by vault
 export interface LatestPpsData {
   timestamp: string;
   pps: string;

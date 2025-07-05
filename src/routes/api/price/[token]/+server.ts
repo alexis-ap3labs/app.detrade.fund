@@ -5,13 +5,13 @@ import type { RequestHandler } from './$types';
 
 type Vault = typeof ALL_VAULTS[0];
 
-// Cache pour les prix
+// Price cache
 const priceCache = new Map<string, { price: number; timestamp: number }>();
 const CACHE_DURATION = 60 * 1000; // 1 minute
-const RATE_LIMIT_DELAY = 1000; // 1 seconde entre les requêtes
+const RATE_LIMIT_DELAY = 1000; // 1 second between requests
 let lastRequestTime = 0;
 
-// Fonction pour attendre si nécessaire pour respecter les limites de taux
+// Function to wait if necessary to respect rate limits
 async function waitForRateLimit() {
   const now = Date.now();
   const timeSinceLastRequest = now - lastRequestTime;
@@ -21,11 +21,11 @@ async function waitForRateLimit() {
   lastRequestTime = Date.now();
 }
 
-// Fonction pour récupérer le prix depuis CoinGecko
+// Function to fetch price from CoinGecko
 async function fetchFromCoinGecko(vault: Vault) {
   console.log(`Fetching price for ${vault.underlyingToken} (${vault.coingeckoId}) from CoinGecko`);
   
-  // Vérifier le cache
+  // Check cache
   const cachedData = priceCache.get(vault.coingeckoId);
   if (cachedData && Date.now() - cachedData.timestamp < CACHE_DURATION) {
     console.log('Using cached price for', vault.coingeckoId);
@@ -64,7 +64,7 @@ async function fetchFromCoinGecko(vault: Vault) {
 
   const price = data[vault.coingeckoId].usd;
   
-  // Mettre à jour le cache
+  // Update cache
   priceCache.set(vault.coingeckoId, {
     price,
     timestamp: Date.now()
@@ -77,13 +77,13 @@ async function fetchFromCoinGecko(vault: Vault) {
   };
 }
 
-// Fonction pour récupérer le prix depuis CoinMarketCap
+// Function to fetch price from CoinMarketCap
 async function fetchFromCoinMarketCap(vault: Vault) {
   if (!env.COINMARKETCAP_API_KEY) {
     throw new Error('CoinMarketCap API key not configured');
   }
 
-  // Vérifier le cache
+  // Check cache
   const cachedData = priceCache.get(vault.underlyingToken);
   if (cachedData && Date.now() - cachedData.timestamp < CACHE_DURATION) {
     console.log('Using cached price for', vault.underlyingToken);
@@ -112,7 +112,7 @@ async function fetchFromCoinMarketCap(vault: Vault) {
 
   const data = await response.json();
   
-  // Trouver le token principal (celui avec l'ID 1 ou le premier avec un prix valide)
+  // Find the main token (the one with ID 1 or the first with a valid price)
   const mainToken = data.data.find((token: any) => token.id === 1) || 
                    data.data.find((token: any) => token.quote?.USD?.price != null);
   
@@ -122,7 +122,7 @@ async function fetchFromCoinMarketCap(vault: Vault) {
 
   const price = mainToken.quote.USD.price;
   
-  // Mettre à jour le cache
+  // Update cache
   priceCache.set(vault.underlyingToken, {
     price,
     timestamp: Date.now()
@@ -139,7 +139,7 @@ export const GET: RequestHandler = async ({ params }) => {
   try {
     const { token } = params;
     
-    // Trouver le vault correspondant au token
+    // Find the vault corresponding to the token
     const vault = ALL_VAULTS.find(v => v.underlyingToken.toLowerCase() === token.toLowerCase());
     
     if (!vault) {
@@ -149,7 +149,7 @@ export const GET: RequestHandler = async ({ params }) => {
       );
     }
 
-    // Vérifier que le vault est du bon type
+    // Check that the vault is of the correct type
     if (!vault.coingeckoId || !vault.underlyingToken) {
       return json(
         { error: 'Invalid vault configuration' },
@@ -158,14 +158,14 @@ export const GET: RequestHandler = async ({ params }) => {
     }
 
     try {
-      // Essayer d'abord CoinGecko
+      // Try CoinGecko first
       const result = await fetchFromCoinGecko(vault as Vault);
       return json(result);
     } catch (error) {
       console.log('CoinGecko failed, trying CoinMarketCap as fallback:', error);
       
       try {
-        // Si CoinGecko échoue pour n'importe quelle raison, utiliser CoinMarketCap
+        // If CoinGecko fails for any reason, use CoinMarketCap
         const result = await fetchFromCoinMarketCap(vault as Vault);
         return json(result);
       } catch (cmcError) {

@@ -1,18 +1,18 @@
 import { writable } from 'svelte/store';
 
-// Interface pour l'état des transactions
+// Interface for transaction state
 interface PendingState {
   isTransactionPending: boolean;
   transactionHash: string | null;
 }
 
-// Store pour l'état des transactions
+// Store for transaction state
 export const pendingTransaction = writable<PendingState>({
   isTransactionPending: false,
   transactionHash: null
 });
 
-// Fonctions pour mettre à jour l'état des transactions
+// Functions to update transaction state
 export function setTransactionPending(hash: string) {
   pendingTransaction.set({
     isTransactionPending: true,

@@ -1,6 +1,7 @@
 import { writable } from 'svelte/store';
 import { ALL_VAULTS } from '../vaults';
 
+// Store for managing latest TVL (Total Value Locked) data by vault
 export type LatestTvlData = {
   tvl: string;
   timestamp: string;

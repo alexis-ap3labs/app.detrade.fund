@@ -10,28 +10,28 @@ interface PricesState {
   [token: string]: PriceData;
 }
 
-// Durée de validité du cache en millisecondes (15 minutes)
+// Cache validity duration in milliseconds (15 minutes)
 const CACHE_DURATION = 15 * 60 * 1000;
-// Délai entre les requêtes en millisecondes (1 seconde)
+// Delay between requests in milliseconds (1 second)
 const REQUEST_DELAY = 1000;
-// Intervalle de rafraîchissement automatique (5 minutes)
+// Automatic refresh interval (5 minutes)
 const REFRESH_INTERVAL = 5 * 60 * 1000;
 
-// Store pour les prix
+// Store for prices
 const pricesState = writable<PricesState>({});
 
-// Map pour suivre les requêtes en cours
+// Map to track pending requests
 const pendingRequests = new Map<string, Promise<{ price: number; source: 'coingecko' | 'coinmarketcap' }>>();
 
-// Fonction pour vérifier si le prix est toujours valide
+// Function to check if price is still valid
 function isPriceValid(lastUpdated: number): boolean {
   return Date.now() - lastUpdated < CACHE_DURATION;
 }
 
-// Fonction pour attendre un délai
+// Function to wait for a delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Fonction pour récupérer le prix depuis CoinGecko
+// Function to fetch price from CoinGecko
 async function fetchFromCoinGecko(token: string): Promise<{ price: number; source: 'coingecko' }> {
   const response = await fetch(`/api/price/${token.toLowerCase()}`);
   if (response.status === 429) {
@@ -48,7 +48,7 @@ async function fetchFromCoinGecko(token: string): Promise<{ price: number; sourc
   return { price: data[token].usd, source: 'coingecko' };
 }
 
-// Fonction pour récupérer le prix depuis CoinMarketCap
+// Function to fetch price from CoinMarketCap
 async function fetchFromCoinMarketCap(token: string): Promise<{ price: number; source: 'coinmarketcap' }> {
   const response = await fetch(`/api/price/cmc/${token.toLowerCase()}`);
   if (!response.ok) {
@@ -62,21 +62,21 @@ async function fetchFromCoinMarketCap(token: string): Promise<{ price: number; s
   return { price: data[token].usd, source: 'coinmarketcap' };
 }
 
-// Fonction pour récupérer le prix d'un token
+// Function to fetch price of a token
 async function fetchPrice(token: string): Promise<{ price: number; source: 'coingecko' | 'coinmarketcap' }> {
-  // Si une requête est déjà en cours pour ce token, on attend son résultat
+  // If a request is already in progress for this token, wait for its result
   if (pendingRequests.has(token)) {
     return pendingRequests.get(token)!;
   }
 
   const requestPromise = (async () => {
     try {
-      // Essayer d'abord CoinGecko
+      // Try CoinGecko first
       return await fetchFromCoinGecko(token);
     } catch (error) {
       if (error instanceof Error && error.message === 'RATE_LIMIT') {
         console.log('CoinGecko rate limited, falling back to CoinMarketCap...');
-        // Si CoinGecko rate limite, utiliser CoinMarketCap
+        // If CoinGecko rate limits, use CoinMarketCap
         return await fetchFromCoinMarketCap(token);
       }
       throw error;
@@ -89,7 +89,7 @@ async function fetchPrice(token: string): Promise<{ price: number; source: 'coin
   return requestPromise;
 }
 
-// Fonction pour mettre à jour le prix d'un token
+// Function to update a token's price
 async function updateTokenPrice(token: string): Promise<void> {
   try {
     const { price, source } = await fetchPrice(token);
@@ -106,23 +106,23 @@ async function updateTokenPrice(token: string): Promise<void> {
   }
 }
 
-// Fonction pour rafraîchir tous les prix en parallèle
+// Function to refresh all prices in parallel
 async function backgroundRefresh(tokens: string[]) {
-  // Pour le chargement initial, on fait les requêtes en parallèle
+  // For initial load, we make parallel requests
   const initialLoad = !Object.keys(get(pricesState)).length;
   
   if (initialLoad) {
-    // Chargement initial : requêtes parallèles avec priorité pour WETH
+    // Initial load: parallel requests with priority for WETH
     const sortedTokens = [...tokens].sort((a, b) => {
       if (a === 'WETH') return -1;
       if (b === 'WETH') return 1;
       return 0;
     });
     
-    // Faire les requêtes en parallèle mais avec priorité pour WETH
+    // Make parallel requests but with priority for WETH
     await Promise.all(sortedTokens.map(token => updateTokenPrice(token)));
   } else {
-    // Rafraîchissement normal : requêtes séquentielles avec délai
+    // Normal refresh: sequential requests with delay
     for (const token of tokens) {
       try {
         await updateTokenPrice(token);
@@ -134,7 +134,7 @@ async function backgroundRefresh(tokens: string[]) {
   }
 }
 
-// Démarrer le rafraîchissement automatique
+// Start automatic refresh
 let refreshInterval: NodeJS.Timeout | null = null;
 
 function startBackgroundRefresh(tokens: string[]) {
@@ -142,24 +142,24 @@ function startBackgroundRefresh(tokens: string[]) {
     clearInterval(refreshInterval);
   }
 
-  // Commencer immédiatement le chargement initial
+  // Start initial load immediately
   backgroundRefresh(tokens);
 
-  // Configurer l'intervalle de rafraîchissement
+  // Set up refresh interval
   refreshInterval = setInterval(() => {
     backgroundRefresh(tokens);
   }, REFRESH_INTERVAL);
 }
 
-// Store exporté avec les méthodes
+// Exported store with methods
 export const prices = {
   subscribe: pricesState.subscribe,
   
-  // Récupérer le prix d'un token (utilise le cache si valide)
+  // Get token price (uses cache if valid)
   async getPrice(token: string): Promise<number> {
     console.log('[prices] Getting price for', token);
     
-    // Vérifier si le prix est déjà en cache et valide
+    // Check if price is already cached and valid
     const cachedPrice = get(pricesState)[token];
     if (cachedPrice && isPriceValid(cachedPrice.lastUpdated)) {
       console.log('[prices] Using cached price for', token, ':', cachedPrice.price);
@@ -167,10 +167,10 @@ export const prices = {
     }
 
     try {
-      // Mettre à jour le prix
+      // Update the price
       await updateTokenPrice(token);
       
-      // Vérifier que le prix a bien été mis à jour
+      // Verify that the price has been updated
       const updatedPrice = get(pricesState)[token];
       if (!updatedPrice) {
         throw new Error(`Failed to update price for ${token}`);
@@ -180,7 +180,7 @@ export const prices = {
       return updatedPrice.price;
     } catch (error) {
       console.error('[prices] Error getting price for', token, ':', error);
-      // Si on a un prix en cache même expiré, on le retourne
+      // If we have a cached price even if expired, return it
       if (cachedPrice) {
         console.log('[prices] Using expired cached price for', token, ':', cachedPrice.price);
         return cachedPrice.price;
@@ -189,20 +189,20 @@ export const prices = {
     }
   },
   
-  // Initialiser le store avec une liste de tokens à suivre
+  // Initialize the store with a list of tokens to track
   initialize(tokens: string[]) {
     console.log('[prices] Initializing store with tokens:', tokens);
     
-    // S'assurer que WETH est toujours présent pour le vault ETH
+    // Ensure WETH is always present for ETH vault
     if (!tokens.includes('WETH')) {
       tokens.push('WETH');
       console.log('[prices] Added WETH to token list');
     }
     
-    // Démarrer le rafraîchissement automatique
+    // Start automatic refresh
     startBackgroundRefresh(tokens);
     
-    // Faire un premier chargement immédiat des prix
+    // Fetch initial prices immediately
     tokens.forEach(token => {
       console.log('[prices] Fetching initial price for', token);
       this.getPrice(token).catch(error => {
@@ -210,7 +210,7 @@ export const prices = {
       });
     });
 
-    // Vérifier spécifiquement le prix WETH
+    // Specifically check WETH price
     if (tokens.includes('WETH')) {
       console.log('[prices] Ensuring WETH price is fetched');
       this.getPrice('WETH').then(price => {

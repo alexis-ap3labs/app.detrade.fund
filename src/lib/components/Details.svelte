@@ -3,17 +3,20 @@
   
   export let vaultId: string;
 
+  // Find vault data from the static vault configuration
   const vault = ALL_VAULTS.find(vault => vault.id === vaultId);
   const deploymentDate = vault?.created_at || "N/A";
   const administrator = vault?.administrator || '';
   const safeContract = vault?.safeContract || '';
   const priceOracle = vault?.priceOracle || '';
 
+  // Format blockchain addresses for display (first 6 + last 4 characters)
   function formatAddress(address: string): string {
     if (!address) return '';
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   }
 
+  // Generate blockchain explorer URLs (BaseScan for Base network)
   function getExplorerUrl(address: string): string {
     return `https://basescan.org/address/${address}`;
   }

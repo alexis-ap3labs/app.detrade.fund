@@ -1,5 +1,6 @@
 /// <reference types="@sveltejs/kit" />
 
+// Ethereum provider interface for wallet connections
 interface Window {
     ethereum?: {
         request: (args: { method: string; params?: any[] }) => Promise<any>;

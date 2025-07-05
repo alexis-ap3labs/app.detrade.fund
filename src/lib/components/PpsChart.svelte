@@ -38,7 +38,7 @@
   // Get ticker dynamically from vaults
   $: ticker = ALL_VAULTS.find(vault => vault.id === vaultId)?.ticker || '';
 
-  // Déclenchement du fetch quand le timeframe ou le vaultId change
+  // Trigger fetch when timeframe or vaultId changes
   $: if (browser && mounted) {
     console.log('Reactive statement triggered - Timeframe or vaultId changed');
     console.log('Current timeframe:', timeframe);
@@ -154,7 +154,7 @@
     isDropdownOpen = !isDropdownOpen;
   }
 
-  // Fermer le dropdown si on clique en dehors
+  // Close dropdown if click outside
   function handleClickOutside(event: MouseEvent) {
     const target = event.target as HTMLElement;
     if (!target.closest('.timeframe-selector')) {
@@ -162,7 +162,7 @@
     }
   }
 
-  // Mise à jour du graphique quand les données changent
+  // Update chart when data changes
   $: if (data && data.length > 0) {
     console.log('Data changed, preparing chart data');
     console.log('Data points count:', data.length);
@@ -213,7 +213,7 @@
     : 'month';
 
   $: xStepSize = timeframe === '1m' ? 1 
-    : timeframe === '3m' ? 3  // Afficher une date tous les 3 jours en mode 3 mois
+    : timeframe === '3m' ? 3  // Display a date every 3 days in 3-month mode
     : undefined;
 
   $: yMin = Math.min(...data.map(d => d.ppsFormatted)) * 0.99;
@@ -221,8 +221,8 @@
 
   function getGradient(ctx: CanvasRenderingContext2D, chartArea: { top: number; bottom: number }) {
     const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-    gradient.addColorStop(0, 'rgba(59, 130, 246, 0.25)'); // bleu plus foncé en haut
-    gradient.addColorStop(1, 'rgba(77, 168, 255, 0.02)'); // bleu clair quasi transparent en bas
+    gradient.addColorStop(0, 'rgba(59, 130, 246, 0.25)'); // darker blue at top
+    gradient.addColorStop(1, 'rgba(77, 168, 255, 0.02)'); // light blue quasi transparent at bottom
     return gradient;
   }
 
@@ -348,14 +348,14 @@
       const yAxis = chart.scales['y'];
       const ctx = chart.ctx;
 
-      // Range minimum pour éviter les labels identiques
+      // Minimum range to avoid identical labels
       let min = yAxis.min;
       let max = yAxis.max;
       if (max - min < 0.000001) {
         max = min + 0.000001;
       }
 
-      // 3 positions à 25%, 50%, 75% de l'axe
+      // 3 positions at 25%, 50%, 75% of the axis
       const positions = [0.25, 0.5, 0.75];
       const ticks = positions.map(p => min + p * (max - min));
 

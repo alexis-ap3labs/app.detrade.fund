@@ -34,7 +34,7 @@
     error?: string;
   }
 
-  // Trouver le vault courant
+  // Find the current vault
   $: currentVault = ALL_VAULTS.find(v => v.id === vaultId);
   let activities: Activity[] = [];
   let loading = false;
@@ -93,7 +93,7 @@
         throw new Error(data.error || 'Failed to load activities');
       }
       
-      // Trier les activités par date de création (plus récent en premier)
+      // Sort activities by creation date (most recent first)
       const sortedData = data.data.sort((a, b) => 
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
@@ -175,7 +175,7 @@
     if (!amount) return '0';
     if (!token) return amount.toString();
     
-    // Pour les parts du vault (shares), on utilise toujours 18 décimales
+    // For vault shares, always use 18 decimals
     if (activeTab === 'Withdraw') {
       try {
         const val = typeof amount === 'string' ? amount : amount.toString();
@@ -187,13 +187,13 @@
       }
     }
 
-    // Pour les autres cas, on utilise les décimales du token sous-jacent
+    // For other cases, use the underlying token decimals
     let decimals = currentVault?.underlyingTokenDecimals || 18;
     try {
       const val = typeof amount === 'string' ? amount : amount.toString();
       console.log('Raw amount:', val, 'Decimals:', decimals);
       
-      // Pour l'USDC, on utilise toujours 6 décimales
+      // For USDC, always use 6 decimals
       if (token === 'USDC') {
         decimals = 6;
       }
@@ -201,7 +201,7 @@
       const formatted = parseFloat(val) / Math.pow(10, decimals);
       console.log('Formatted amount:', formatted);
       
-      // Pour Valuation, on force 2 décimales pour tous les tokens
+      // For Valuation, force 2 decimals for all tokens
       if (activeTab === 'Valuation') {
         const result = formatted.toLocaleString(undefined, { 
           minimumFractionDigits: 2,
@@ -211,7 +211,7 @@
         return result;
       }
       
-      // Pour les autres cas, on utilise les décimales appropriées selon le token
+      // For other cases, use appropriate decimals based on token
       return formatted.toLocaleString(undefined, { 
         maximumFractionDigits: decimals === 6 ? 2 : 6 
       });
@@ -224,7 +224,7 @@
   function formatTimestamp(ts: string | number | undefined): string {
     if (!ts) return 'N/A';
     try {
-      // blockTimestamp est un timestamp unix en secondes (string)
+      // blockTimestamp is a unix timestamp in seconds (string)
       const t = typeof ts === 'string' ? parseInt(ts) : ts;
       if (isNaN(Number(t))) return 'Invalid date';
       const date = new Date(Number(t) * 1000);
@@ -241,7 +241,7 @@
     } else if (network === NETWORKS.BASE.name) {
       return 'https://basescan.org/tx/';
     }
-    // Par défaut Ethereum
+    // Default to Ethereum
     return 'https://etherscan.io/tx/';
   }
 
@@ -257,7 +257,7 @@
 
   function getActivityLinkFromId(id: string | undefined): string {
     if (!id) return '#';
-    // On prend le hash de la transaction (66 caractères) sans les zéros à la fin
+    // Take the transaction hash (66 characters) without trailing zeros
     const hash = id.slice(0, 66).replace(/0+$/, '');
     return getExplorerBaseUrl() + hash;
   }
@@ -274,7 +274,7 @@
   function isActivitySettled(activity: Activity): boolean {
     if (!activity.createdAt) return false;
     
-    // Pour les dépôts, on cherche un événement settleDeposit
+    // For deposits, look for a settleDeposit event
     if (activity.type === 'depositRequest') {
       return activities.some(a => 
         a.type === 'settleDeposit' && 
@@ -282,7 +282,7 @@
       );
     }
     
-    // Pour les retraits, on cherche un événement settleRedeem
+    // For withdrawals, look for a settleRedeem event
     if (activity.type === 'redeemRequest') {
       return activities.some(a => 
         a.type === 'settleRedeem' && 
@@ -666,7 +666,7 @@
     text-align: right;
   }
 
-  /* Pour 3 colonnes dynamiquement */
+  /* For 3 columns dynamically */
   .column-headers:has(.header-cell:nth-child(3):last-child) {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -715,7 +715,7 @@
     text-align: right;
   }
 
-  /* Pour 3 colonnes dynamiquement */
+  /* For 3 columns dynamically */
   .activity-row:has(.activity-cell:nth-child(3):last-child) {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -866,7 +866,7 @@
       font-size: 0.9rem;
     }
 
-    /* Supprimer les styles des boutons de défilement */
+    /* Remove scroll button styles */
     .scroll-button {
       display: none;
     }

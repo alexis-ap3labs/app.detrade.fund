@@ -16,7 +16,7 @@ export const POST: RequestHandler = async ({ request }) => {
     const payload: GitHubActionPayload = await request.json();
     const { vaultId, action, transactionHash, amount, userAddress, timestamp } = payload;
 
-    // Vérifier que le token GitHub est configuré
+    // Check that GitHub token is configured
     const githubToken = env.PRIVATE_GITHUB_TOKEN;
     if (!githubToken) {
       console.error('GitHub token not configured');
@@ -49,12 +49,12 @@ export const POST: RequestHandler = async ({ request }) => {
       return json({ error: `No GitHub Action configured for vault: ${vaultId}` }, { status: 400 });
     }
 
-    // Préparer les inputs pour la GitHub Action
+    // Prepare inputs for GitHub Action
     const workflowInputs = {
       manual_trigger: 'true'
     };
 
-    // Déclencher la GitHub Action
+    // Trigger the GitHub Action
     const response = await fetch(
       `https://api.github.com/repos/${vaultConfig.repository}/actions/workflows/${vaultConfig.workflow}/dispatches`,
       {
@@ -65,7 +65,7 @@ export const POST: RequestHandler = async ({ request }) => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          ref: 'master', // ou la branche que tu utilises
+          ref: 'master', // or the branch you're using
           inputs: workflowInputs
         })
       }

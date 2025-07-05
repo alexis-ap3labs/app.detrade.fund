@@ -1,4 +1,4 @@
-import type { PpsEvent } from '$lib/stores/pps';
+import type { PpsHistoryData } from '$lib/stores/pps';
 
 /**
  * Calculates the 30-day Annual Percentage Rate (APR) based on share prices (PPS).
@@ -7,43 +7,43 @@ import type { PpsEvent } from '$lib/stores/pps';
  * @param events Array of PPS events sorted by timestamp
  * @returns The calculated 30-day APR as a percentage, or null if insufficient data
  */
-export function calculate30DayApr(events: PpsEvent[]): number | null {
+export function calculate30DayApr(events: PpsHistoryData[]): number | null {
   if (events.length < 2) {
     return null;
   }
 
-  // Trier les événements par date (du plus récent au plus ancien)
-  const sortedEvents = [...events].sort((a, b) => b.blockTimestamp - a.blockTimestamp);
+  // Sort events by date (most recent to oldest)
+  const sortedEvents = [...events].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   
-  // Prendre le prix des parts le plus récent (déjà formaté)
+  // Get the most recent share price (already formatted)
   const latestPps = sortedEvents[0].ppsFormatted;
   
-  // Calculer la date d'il y a 30 jours (en secondes)
-  const thirtyDaysAgo = Math.floor(Date.now() / 1000) - (30 * 24 * 60 * 60);
+  // Calculate the date 30 days ago (in milliseconds)
+  const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
   
-  // Trouver le prix des parts le plus proche d'il y a 30 jours (déjà formaté)
-  const pastPps = sortedEvents.find(event => event.blockTimestamp <= thirtyDaysAgo)?.ppsFormatted;
+  // Find the share price closest to 30 days ago (already formatted)
+  const pastPps = sortedEvents.find(event => new Date(event.timestamp).getTime() <= thirtyDaysAgo)?.ppsFormatted;
   
-  // Si on a plus de 30 jours d'historique, on utilise le point le plus proche de 30 jours
-  // Sinon, on utilise le point le plus ancien disponible
+  // If we have more than 30 days of history, use the point closest to 30 days
+  // Otherwise, use the oldest available data point
   const referencePps = pastPps || sortedEvents[sortedEvents.length - 1].ppsFormatted;
   const referenceTimestamp = pastPps 
-    ? sortedEvents.find(event => event.ppsFormatted === pastPps)!.blockTimestamp
-    : sortedEvents[sortedEvents.length - 1].blockTimestamp;
+    ? sortedEvents.find(event => event.ppsFormatted === pastPps)!.timestamp
+    : sortedEvents[sortedEvents.length - 1].timestamp;
   
-  // Calculer le rendement sur la période disponible
-  // Le rendement est calculé comme (nouveau prix - ancien prix) / ancien prix
-  // Les prix sont déjà formatés avec les bonnes décimales
+  // Calculate the return over the available period
+  // Return is calculated as (new price - old price) / old price
+  // Prices are already formatted with correct decimals
   const periodReturn = (latestPps - referencePps) / referencePps;
   
-  // Calculer le nombre de jours entre les deux points
-  const daysBetween = (sortedEvents[0].blockTimestamp - referenceTimestamp) / (24 * 60 * 60);
+  // Calculate number of days between the two points
+  const daysBetween = (new Date(sortedEvents[0].timestamp).getTime() - new Date(referenceTimestamp).getTime()) / (24 * 60 * 60 * 1000);
   
-  // Annualiser le rendement en ajustant pour la période réelle
-  // Si la période est très courte (< 1 jour), on utilise une période minimale de 1 jour
+  // Annualize the return by adjusting for the actual period
+  // If the period is very short (< 1 day), use a minimum period of 1 day
   const adjustedDays = Math.max(daysBetween, 1);
   const apr = periodReturn * (365 / adjustedDays);
   
-  // Retourner l'APR en pourcentage
+  // Return the APR as a percentage
   return apr * 100;
 } 

@@ -46,7 +46,7 @@ function extractTransactionHashFromId(id: string): string | null {
 }
 
 function formatPps(pps: string): number {
-  // On divise toujours par 1e18 pour obtenir la valeur formatée
+  // Always divide by 1e18 to get the formatted value
   return Number(pps) / Math.pow(10, 18);
 }
 
@@ -126,8 +126,8 @@ function calculatePps(event: any, relatedEvents: any[], decimals: number): { raw
       if (highWaterMarkEvent?.newHighWaterMark) {
         console.log('Using highWaterMarkUpdated value:', highWaterMarkEvent.newHighWaterMark);
         // Convert highWaterMark to wei (multiply by 1e18)
-        // Pour les tokens avec 6 décimales, on divise par 1e6 puis on multiplie par 1e18
-        // Pour les tokens avec 18 décimales, on multiplie directement par 1e18
+        // For tokens with 6 decimals, divide by 1e6 then multiply by 1e18
+        // For tokens with 18 decimals, multiply directly by 1e18
         const highWaterMarkValue = Number(highWaterMarkEvent.newHighWaterMark) / Math.pow(10, decimals);
         rawPps = (BigInt(Math.floor(highWaterMarkValue * Math.pow(10, 18)))).toString();
       } else {
@@ -154,28 +154,28 @@ export const GET: RequestHandler = async ({ url, params }) => {
     
     console.log('Fetching PPS data for vault:', id, 'with time filter:', timeFilter, 'latest:', latest);
     
-    // Vérifier si le vault existe
+    // Check if vault exists
     const vault = ALL_VAULTS.find(v => v.id === id);
     if (!vault) {
       return json({ error: 'Vault not found' }, { status: 404 });
     }
 
-    // Vérifier que le vault a soit 6 soit 18 décimales
+    // Check that vault has either 6 or 18 decimals
     if (vault.underlyingTokenDecimals !== 6 && vault.underlyingTokenDecimals !== 18) {
       return json({ error: 'PPS calculation is only supported for vaults with 6 or 18 decimals' }, { status: 400 });
     }
 
-    // Vérifier l'URI MongoDB
+    // Check MongoDB URI
     if (!env.MONGO_URI) {
       return json({ error: 'Database configuration error' }, { status: 500 });
     }
 
-    // Connexion à MongoDB
+    // Connect to MongoDB
     const client = await clientPromise;
     const db = client.db(id);
     const collection = db.collection('subgraph');
 
-    // Récupérer tous les événements totalAssetsUpdated
+    // Get all totalAssetsUpdated events
     const totalAssetsEvents = await collection
       .find({ 
         type: 'totalAssetsUpdated',
@@ -186,11 +186,11 @@ export const GET: RequestHandler = async ({ url, params }) => {
 
     console.log('Found', totalAssetsEvents.length, 'totalAssetsUpdated events');
 
-    // Transformer les événements et récupérer les événements associés
+    // Transform events and get associated events
     const allEvents: PpsEvent[] = [];
     
     for (const event of totalAssetsEvents) {
-      // Obtenir le hash de transaction
+      // Get transaction hash
       let transactionHash = '';
       if ('transactionHash' in event && event.transactionHash) {
         transactionHash = event.transactionHash;
@@ -204,7 +204,7 @@ export const GET: RequestHandler = async ({ url, params }) => {
       if (transactionHash) {
         console.log(`Fetching related events for hash: ${transactionHash}`);
         
-        // Récupérer tous les événements avec ce hash
+        // Get all events with this hash
         const relatedEvents = await collection
           .find({
             $or: [
@@ -235,7 +235,7 @@ export const GET: RequestHandler = async ({ url, params }) => {
       }
     }
 
-    // Si latest=true, retourner uniquement le dernier événement
+    // If latest=true, return only the last event
     if (latest) {
       const lastEvent = allEvents[0];
       if (!lastEvent) {
@@ -250,7 +250,7 @@ export const GET: RequestHandler = async ({ url, params }) => {
       });
     }
 
-    // Filtrer les événements selon le timeFilter
+    // Filter events according to timeFilter
     const startTimestamp = getStartTimestamp(timeFilter);
     const filteredEvents = allEvents
       .filter(event => event.blockTimestamp >= startTimestamp)

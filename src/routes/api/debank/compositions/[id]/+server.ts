@@ -27,7 +27,7 @@ export const GET: RequestHandler = async ({ params }) => {
     const { id } = params;
     console.log('Fetching latest composition for vault (debank):', id);
     
-    // Vérifier si le vault existe
+    // Check if vault exists
     const vault = ALL_VAULTS.find(v => v.id === id);
     if (!vault) {
       console.log('Vault not found:', id);
@@ -37,7 +37,7 @@ export const GET: RequestHandler = async ({ params }) => {
       );
     }
 
-    // Connexion à MongoDB
+    // Connect to MongoDB
     const client = await clientPromise;
     console.log('Connected to MongoDB');
     
@@ -46,7 +46,7 @@ export const GET: RequestHandler = async ({ params }) => {
 
     const collection = db.collection('debank');
     
-    // Récupérer le document le plus récent
+    // Get the most recent document
     const latestComposition = await collection
       .find({
         timestamp: { $regex: /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} UTC$/ }
@@ -79,7 +79,7 @@ export const GET: RequestHandler = async ({ params }) => {
 
     console.log('Latest composition found:', composition);
 
-    // Calculer les pourcentages de répartition
+    // Calculate allocation percentages
     const isEthVault = id === 'detrade-core-eth';
     const isEurcVault = id === 'detrade-core-eurc';
     
@@ -94,7 +94,7 @@ export const GET: RequestHandler = async ({ params }) => {
     
     const positions = composition.positions || {};
 
-    // Vérifier que les valeurs sont valides
+    // Check that values are valid
     if (isNaN(totalValue) || totalValue <= 0) {
       console.error('Invalid total value:', {
         raw: isEthVault ? (composition.nav.weth || composition.nav.eth) : isEurcVault ? composition.nav.eurc : composition.nav.usdc,
@@ -139,7 +139,7 @@ export const GET: RequestHandler = async ({ params }) => {
       };
     });
     
-    // Vérifier qu'il y a au moins une position valide
+    // Check that there is at least one valid position
     if (Object.keys(allocation).length === 0) {
       console.error('No valid positions found in composition data');
       return json(

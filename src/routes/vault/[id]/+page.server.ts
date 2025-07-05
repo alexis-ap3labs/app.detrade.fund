@@ -12,7 +12,7 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
 
     try {
         // Fetch initial vault metrics
-        const baseUrl = 'https://app2-gules-sigma.vercel.app';
+        const baseUrl = 'https://app.detrade.fund';
         const [tvlResponse, netAprResponse, thirtyDayAprResponse, sevenDayAprResponse, compositionResponse] = await Promise.all([
             fetch(`${baseUrl}/api/vaults/${vaultId}/metrics/tvl?latest=true`),
             fetch(`${baseUrl}/api/vaults/${vaultId}/metrics/net_apr`),

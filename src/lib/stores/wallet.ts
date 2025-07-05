@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 
-// Interface pour l'état du wallet
+// Interface for wallet state
 interface WalletState {
   address: string | null;
   chainId: number | null;
@@ -8,7 +8,7 @@ interface WalletState {
   isConnecting: boolean;
 }
 
-// Store pour l'état du wallet
+// Store for wallet state
 const walletState = writable<WalletState>({
   address: null,
   chainId: null,
@@ -16,25 +16,25 @@ const walletState = writable<WalletState>({
   isConnecting: false
 });
 
-// Store pour l'état de connexion
+// Store for connection state
 export const isConnected = writable<boolean>(false);
 
-// Store pour l'adresse du wallet
+// Store for wallet address
 export const address = writable<string | null>(null);
 
-// Store pour le chainId
+// Store for chain ID
 export const chainId = writable<number | null>(null);
 
-// Store pour les erreurs
+// Store for errors
 export const error = writable<string | null>(null);
 
-// Store pour l'état du wallet
+// Store for wallet state
 export const wallet = {
   subscribe: walletState.subscribe,
   set: walletState.set,
   update: walletState.update,
   
-  // Méthodes pour mettre à jour l'état
+  // Methods to update state
   updateAddress: (newAddress: string | null) => {
     walletState.update(state => ({
       ...state,

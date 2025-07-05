@@ -1,6 +1,7 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 
+// Store for managing 7-day APR data by vault
 type AprData = {
   data: {
     apr: number;
@@ -49,6 +50,7 @@ function createSevenDayAprStore() {
         }
       }));
     },
+    // Fetch 7-day APR data for a vault
     fetchSevenDayApr: async (vaultId: string) => {
       if (!browser) return;
 
