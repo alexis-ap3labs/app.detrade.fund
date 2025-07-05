@@ -30,15 +30,6 @@ on:
         description: 'Transaction timestamp'
         required: true
         type: string
-      retry_count:
-        description: 'Current retry count (internal use)'
-        required: false
-        type: string
-        default: '0'
-      original_timestamp:
-        description: 'Original transaction timestamp (internal use)'
-        required: false
-        type: string
 
 jobs:
   process-vault-action:
@@ -65,15 +56,6 @@ jobs:
           echo "Amount: ${{ github.event.inputs.amount }}"
           echo "User Address: ${{ github.event.inputs.user_address }}"
           echo "Timestamp: ${{ github.event.inputs.timestamp }}"
-          echo "Retry Count: ${{ github.event.inputs.retry_count }}"
-          
-          # Determine if this is a retry or the first run
-          RETRY_COUNT="${{ github.event.inputs.retry_count }}"
-          if [ "$RETRY_COUNT" = "0" ] || [ -z "$RETRY_COUNT" ]; then
-            echo "🚀 First run - will trigger subgraph sync and schedule retries"
-          else
-            echo "🔄 Retry #$RETRY_COUNT - triggering subgraph sync"
-          fi
           
       - name: Trigger subgraph sync
         run: |
@@ -105,85 +87,13 @@ jobs:
             -H "Accept: application/vnd.github.v3+json" \
             -H "Content-Type: application/json" \
             "https://api.github.com/repos/detradefund/subgraph/actions/workflows/$WORKFLOW_FILE/dispatches" \
-            -d "{\"ref\": \"master\", \"inputs\": {\"manual_trigger\": \"true\", \"source\": \"vault-action-retry-${{ github.event.inputs.retry_count }}\"}}"
+            -d "{\"ref\": \"master\", \"inputs\": {\"manual_trigger\": \"true\", \"source\": \"vault-action-trigger\"}}"
           
           if [ $? -eq 0 ]; then
             echo "✅ Subgraph sync triggered successfully"
           else
             echo "❌ Failed to trigger subgraph sync"
           fi
-          
-      - name: Schedule next retry
-        if: github.event.inputs.retry_count != '5'
-        run: |
-          RETRY_COUNT="${{ github.event.inputs.retry_count }}"
-          if [ -z "$RETRY_COUNT" ] || [ "$RETRY_COUNT" = "0" ]; then
-            RETRY_COUNT=0
-          fi
-          
-          NEXT_RETRY=$((RETRY_COUNT + 1))
-          
-          # Don't schedule if we've reached max retries
-          if [ "$NEXT_RETRY" -gt 5 ]; then
-            echo "🛑 Maximum retries (5) reached, stopping"
-            exit 0
-          fi
-          
-          # Define delay for next retry
-          case "$NEXT_RETRY" in
-            "1") DELAY_MINUTES=3; DELAY_LABEL="3 minutes" ;;
-            "2") DELAY_MINUTES=7; DELAY_LABEL="7 minutes (10 min total)" ;;
-            "3") DELAY_MINUTES=20; DELAY_LABEL="20 minutes (30 min total)" ;;
-            "4") DELAY_MINUTES=30; DELAY_LABEL="30 minutes (1 hour total)" ;;
-            "5") DELAY_MINUTES=120; DELAY_LABEL="120 minutes (3 hours total)" ;;
-            *) echo "❌ Invalid retry count: $NEXT_RETRY"; exit 1 ;;
-          esac
-          
-          echo "⏰ Will schedule retry #$NEXT_RETRY in $DELAY_LABEL"
-          
-          # Original timestamp for tracking
-          ORIGINAL_TIMESTAMP="${{ github.event.inputs.original_timestamp }}"
-          if [ -z "$ORIGINAL_TIMESTAMP" ]; then
-            ORIGINAL_TIMESTAMP="${{ github.event.inputs.timestamp }}"
-          fi
-          
-          # Schedule the next retry with a simple sleep and immediate API call
-          echo "🕐 Starting $DELAY_MINUTES minute countdown for retry #$NEXT_RETRY..."
-          
-          # Wait in the background and then trigger
-          (
-            sleep $((DELAY_MINUTES * 60))
-            echo "⏰ $DELAY_MINUTES minutes elapsed, triggering retry #$NEXT_RETRY now..."
-            
-            curl -X POST \
-              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              -H "Accept: application/vnd.github.v3+json" \
-              -H "Content-Type: application/json" \
-              "https://api.github.com/repos/${{ github.repository }}/actions/workflows/vault-action-example.yml/dispatches" \
-              -d "{
-                \"ref\": \"${{ github.ref_name }}\",
-                \"inputs\": {
-                  \"vault_id\": \"${{ github.event.inputs.vault_id }}\",
-                  \"action_type\": \"${{ github.event.inputs.action_type }}\",
-                  \"transaction_hash\": \"${{ github.event.inputs.transaction_hash }}\",
-                  \"amount\": \"${{ github.event.inputs.amount }}\",
-                  \"user_address\": \"${{ github.event.inputs.user_address }}\",
-                  \"timestamp\": \"${{ github.event.inputs.timestamp }}\",
-                  \"retry_count\": \"$NEXT_RETRY\",
-                  \"original_timestamp\": \"$ORIGINAL_TIMESTAMP\"
-                }
-              }"
-            
-            if [ $? -eq 0 ]; then
-              echo "✅ Retry #$NEXT_RETRY triggered successfully"
-            else
-              echo "❌ Failed to trigger retry #$NEXT_RETRY"
-            fi
-          ) &
-          
-          # Don't wait for the background process - action will complete quickly
-          echo "🚀 Action completing now. Retry #$NEXT_RETRY will auto-trigger in $DELAY_MINUTES minutes."
-          echo "📊 You'll see a new separate GitHub Action run appear in $DELAY_MINUTES minutes."
           
       - name: Send notification
         if: github.event.inputs.action_type == 'deposit'
@@ -202,11 +112,4 @@ jobs:
           echo "Vault: ${{ github.event.inputs.vault_id }}"
           echo "Type: ${{ github.event.inputs.action_type }}"
           echo "Hash: ${{ github.event.inputs.transaction_hash }}"
-          echo "Retry: ${{ github.event.inputs.retry_count }}"
-          
-          RETRY_COUNT="${{ github.event.inputs.retry_count }}"
-          if [ "$RETRY_COUNT" = "0" ] || [ -z "$RETRY_COUNT" ]; then
-            echo "🎉 First run completed - retries scheduled"
-          else
-            echo "🔄 Retry #$RETRY_COUNT completed"
-          fi 
+          echo "🎉 Vault action processing completed" 
