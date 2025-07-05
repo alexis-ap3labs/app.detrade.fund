@@ -27,13 +27,14 @@ export const GET: RequestHandler = async ({ url, params }) => {
     const db = client.db(id);
     const collection = db.collection('subgraph');
 
-    // Get all totalAssetsUpdated events
+    // Récupérer les événements totalAssetsUpdated (optimisé: limite à 100 événements récents)
     const totalAssetsEvents = await collection
       .find({ 
         type: 'totalAssetsUpdated',
         blockTimestamp: { $exists: true, $ne: null }
       })
       .sort({ blockTimestamp: -1 })
+      .limit(100) // OPTIMISATION: Limiter à 100 événements récents pour le calcul Net APR
       .toArray();
 
     // Transform events and get associated events

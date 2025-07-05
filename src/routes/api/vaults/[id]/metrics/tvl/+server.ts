@@ -94,18 +94,32 @@ export const GET: RequestHandler = async ({ url, params }) => {
     const db = client.db(id);
     const collection = db.collection('subgraph');
     
-    // Get relevant events
-    const events = await collection
-      .find({ 
-        $or: [
-          { type: 'settleDeposit' },
-          { type: 'settleRedeem' },
-          { type: 'totalAssetsUpdated' }
-        ],
-        blockTimestamp: { $exists: true, $ne: null }
-      })
-      .sort({ blockTimestamp: -1 })
-      .toArray();
+    // Get relevant events (optimisé selon le paramètre latest)
+    const query = { 
+      $or: [
+        { type: 'settleDeposit' },
+        { type: 'settleRedeem' },
+        { type: 'totalAssetsUpdated' }
+      ],
+      blockTimestamp: { $exists: true, $ne: null }
+    };
+    
+    let events;
+    if (latest) {
+      // OPTIMISATION: Pour latest=true, récupérer seulement les 5 derniers événements
+      events = await collection
+        .find(query)
+        .sort({ blockTimestamp: -1 })
+        .limit(5)
+        .toArray();
+    } else {
+      // Pour les données historiques, utiliser une limite raisonnable
+      events = await collection
+        .find(query)
+        .sort({ blockTimestamp: -1 })
+        .limit(500) // OPTIMISATION: Limiter à 500 événements max
+        .toArray();
+    }
 
     // Transform events
     const rawEvents: RawEvent[] = events

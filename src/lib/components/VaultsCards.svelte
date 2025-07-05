@@ -23,7 +23,7 @@
     return 'https://basescan.org/tx/';
   }
 
-  // Fonction pour charger les données initiales avec optimisation groupée
+  // Fonction pour charger les données initiales ULTRA-RAPIDE avec endpoint bulk CORRECT
   async function loadInitialDataOptimized() {
     try {
       loadingState.setLoading(true);
@@ -32,136 +32,107 @@
       const activeVaults = ALL_VAULTS.filter(vault => vault.isActive || isAdminWallet);
       const vaultIds = activeVaults.map(v => v.id);
       
-      // Initialiser le store des prix
+      // Initialiser le store des prix en parallèle
       const uniqueTokens = [...new Set(activeVaults.map(v => v.underlyingToken))];
       if (!uniqueTokens.includes('WETH')) {
         uniqueTokens.push('WETH');
       }
-      prices.initialize(uniqueTokens);
       
-      // Créer des requêtes groupées par type
-      const tvlPromises = vaultIds.map(id => 
-        fetch(`/api/vaults/${id}/metrics/tvl?latest=true`)
-          .then(res => res.ok ? res.json() : null)
-          .then(data => ({ id, data }))
-          .catch(() => ({ id, data: null }))
-      );
-      
-      const netAprPromises = vaultIds.map(id => 
-        fetch(`/api/vaults/${id}/metrics/net_apr`)
-          .then(res => res.ok ? res.json() : null)
-          .then(data => ({ id, data }))
-          .catch(() => ({ id, data: null }))
-      );
-      
-      const thirtyDayAprPromises = vaultIds.map(id => 
-        fetch(`/api/vaults/${id}/metrics/30d_apr`)
-          .then(res => res.ok ? res.json() : null)
-          .then(data => ({ id, data }))
-          .catch(() => ({ id, data: null }))
-      );
-      
-      const sevenDayAprPromises = vaultIds.map(id => 
-        fetch(`/api/vaults/${id}/metrics/7d_apr`)
-          .then(res => res.ok ? res.json() : null)
-          .then(data => ({ id, data }))
-          .catch(() => ({ id, data: null }))
-      );
-      
-      const compositionPromises = vaultIds.map(id => 
-        fetch(`/api/vaults/${id}/composition`)
-          .then(res => res.ok ? res.json() : null)
-          .then(data => ({ id, data }))
-          .catch(() => ({ id, data: null }))
-      );
-      
-      // Attendre que toutes les requêtes se terminent
-      const [tvlResults, netAprResults, thirtyDayAprResults, sevenDayAprResults, compositionResults] = await Promise.all([
-        Promise.all(tvlPromises),
-        Promise.all(netAprPromises),
-        Promise.all(thirtyDayAprPromises),
-        Promise.all(sevenDayAprPromises),
-        Promise.all(compositionPromises)
+      // Lancer les prix et les métriques en parallèle
+      const [pricesPromise, bulkResponse] = await Promise.all([
+        prices.initialize(uniqueTokens),
+        fetch(`/api/vaults/bulk-metrics-correct?vaultIds=${vaultIds.join(',')}`)
       ]);
       
-      // Mettre à jour le store avec toutes les données en une seule fois
+      if (!bulkResponse.ok) {
+        throw new Error(`Bulk metrics request failed: ${bulkResponse.status}`);
+      }
+      
+      const bulkData = await bulkResponse.json();
+      
+      // Traitement ultra-rapide des métriques avec logique correcte
       vaultStore.update(store => {
         const newStore = { ...store };
         
-        // Initialiser tous les vaults
         vaultIds.forEach(id => {
+          const vaultMetrics = bulkData.vaults[id];
+          
           newStore[id] = {
-            tvl: { value: '0', timestamp: '', blockTimestamp: '', totalSupply: '0', loading: false, error: null },
-            netApr: { value: null, timestamp: null, loading: false, error: null },
-            thirtyDayApr: { value: null, timestamp: null, loading: false, error: null },
-            sevenDayApr: { value: null, timestamp: null, loading: false, error: null },
-            composition: { value: null, loading: false, error: null }
-          };
-        });
-        
-        // Appliquer les données TVL
-        tvlResults.forEach(result => {
-          if (result.data?.latestTvl) {
-            newStore[result.id].tvl = {
-              value: result.data.latestTvl.totalAssets || '0',
-              timestamp: result.data.latestTvl.timestamp || new Date().toISOString(),
-              blockTimestamp: Math.floor(new Date(result.data.latestTvl.timestamp).getTime() / 1000).toString(),
+            tvl: {
+              value: vaultMetrics?.tvl?.totalAssets || '0',
+              timestamp: vaultMetrics?.tvl?.timestamp || new Date().toISOString(),
+              blockTimestamp: vaultMetrics?.tvl?.timestamp ? 
+                Math.floor(new Date(vaultMetrics.tvl.timestamp).getTime() / 1000).toString() : 
+                Math.floor(Date.now() / 1000).toString(),
               totalSupply: '0',
               loading: false,
               error: null
-            };
-          }
-        });
-        
-        // Appliquer les données Net APR
-        netAprResults.forEach(result => {
-          if (result.data?.apr !== undefined) {
-            newStore[result.id].netApr = {
-              value: result.data.apr,
+            },
+            netApr: {
+              value: vaultMetrics?.netApr ?? null,
               timestamp: new Date().toISOString(),
               loading: false,
               error: null
-            };
-          }
-        });
-        
-        // Appliquer les données 30D APR
-        thirtyDayAprResults.forEach(result => {
-          if (result.data?.apr !== undefined) {
-            newStore[result.id].thirtyDayApr = {
-              value: result.data.apr,
+            },
+            thirtyDayApr: {
+              value: vaultMetrics?.thirtyDayApr ?? null,
               timestamp: new Date().toISOString(),
               loading: false,
               error: null
-            };
-          }
-        });
-        
-        // Appliquer les données 7D APR
-        sevenDayAprResults.forEach(result => {
-          if (result.data?.apr !== undefined) {
-            newStore[result.id].sevenDayApr = {
-              value: result.data.apr,
+            },
+            sevenDayApr: {
+              value: vaultMetrics?.sevenDayApr ?? null,
               timestamp: new Date().toISOString(),
               loading: false,
               error: null
-            };
-          }
-        });
-        
-        // Appliquer les données de composition
-        compositionResults.forEach(result => {
-          if (result.data) {
-            newStore[result.id].composition = {
-              value: result.data,
+            },
+            composition: {
+              value: null, // Chargé en arrière-plan
               loading: false,
               error: null
-            };
-          }
+            }
+          };
         });
         
         return newStore;
       });
+      
+      // Attendre que les prix soient prêts
+      await pricesPromise;
+      
+      // Charger la composition en arrière-plan (non bloquant)
+      setTimeout(async () => {
+        const compositionResults = await Promise.all(
+          vaultIds.map(async (id) => {
+            try {
+              const response = await fetch(`/api/vaults/${id}/composition`);
+              if (response.ok) {
+                const data = await response.json();
+                return { id, data };
+              }
+              return { id, data: null };
+            } catch (error) {
+              console.error(`Error loading composition for ${id}:`, error);
+              return { id, data: null };
+            }
+          })
+        );
+        
+        // Mettre à jour la composition
+        vaultStore.update(store => {
+          const newStore = { ...store };
+          compositionResults.forEach(result => {
+            if (result.data && newStore[result.id]) {
+              newStore[result.id].composition = {
+                value: result.data,
+                loading: false,
+                error: null
+              };
+            }
+          });
+          return newStore;
+        });
+      }, 100);
       
       loadingState.setLoading(false);
       loadingState.setLastUpdated(Date.now());
@@ -173,7 +144,7 @@
     } catch (error) {
       console.error('Error loading initial data:', error);
       loadingState.setError(error instanceof Error ? error.message : String(error));
-      loadingState.setGlobalDataReady(true); // Afficher quand même les vaults même en cas d'erreur
+      loadingState.setGlobalDataReady(true);
     }
   }
 

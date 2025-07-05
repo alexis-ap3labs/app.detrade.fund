@@ -28,13 +28,14 @@ export const GET: RequestHandler = async ({ url, params }) => {
     const db = client.db(id);
     const collection = db.collection('subgraph');
 
-    // Récupérer tous les événements totalAssetsUpdated
+    // Récupérer les événements totalAssetsUpdated (optimisé: limite à 50 événements récents)
     const totalAssetsEvents = await collection
       .find({ 
         type: 'totalAssetsUpdated',
         blockTimestamp: { $exists: true, $ne: null }
       })
       .sort({ blockTimestamp: -1 })
+      .limit(50) // OPTIMISATION: Limiter à 50 événements récents au lieu de tous
       .toArray();
 
     // Transformer les événements et récupérer les événements associés
