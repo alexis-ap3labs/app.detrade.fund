@@ -113,10 +113,33 @@ jobs:
             echo "❌ Failed to trigger subgraph sync"
           fi
           
-      - name: Schedule retries (first run only)
-        if: github.event.inputs.retry_count == '0' || github.event.inputs.retry_count == ''
+      - name: Schedule next retry
+        if: github.event.inputs.retry_count != '5'
         run: |
-          echo "📅 Scheduling retry workflows..."
+          RETRY_COUNT="${{ github.event.inputs.retry_count }}"
+          if [ -z "$RETRY_COUNT" ] || [ "$RETRY_COUNT" = "0" ]; then
+            RETRY_COUNT=0
+          fi
+          
+          NEXT_RETRY=$((RETRY_COUNT + 1))
+          
+          # Don't schedule if we've reached max retries
+          if [ "$NEXT_RETRY" -gt 5 ]; then
+            echo "🛑 Maximum retries (5) reached, stopping"
+            exit 0
+          fi
+          
+          # Define delay for next retry
+          case "$NEXT_RETRY" in
+            "1") DELAY_MINUTES=3; DELAY_LABEL="3 minutes" ;;
+            "2") DELAY_MINUTES=7; DELAY_LABEL="7 minutes (10 min total)" ;;
+            "3") DELAY_MINUTES=20; DELAY_LABEL="20 minutes (30 min total)" ;;
+            "4") DELAY_MINUTES=30; DELAY_LABEL="30 minutes (1 hour total)" ;;
+            "5") DELAY_MINUTES=120; DELAY_LABEL="120 minutes (3 hours total)" ;;
+            *) echo "❌ Invalid retry count: $NEXT_RETRY"; exit 1 ;;
+          esac
+          
+          echo "⏰ Will schedule retry #$NEXT_RETRY in $DELAY_LABEL"
           
           # Original timestamp for tracking
           ORIGINAL_TIMESTAMP="${{ github.event.inputs.original_timestamp }}"
@@ -124,66 +147,43 @@ jobs:
             ORIGINAL_TIMESTAMP="${{ github.event.inputs.timestamp }}"
           fi
           
-          # Schedule retries with delays (3min, 10min, 30min, 1h, 3h)
-          # We'll use GitHub Actions workflow_dispatch API with delays
+          # Schedule the next retry with a simple sleep and immediate API call
+          echo "🕐 Starting $DELAY_MINUTES minute countdown for retry #$NEXT_RETRY..."
           
-          # Helper function to schedule a retry
-          schedule_retry() {
-            local delay_minutes=$1
-            local retry_number=$2
-            local delay_label=$3
+          # Wait in the background and then trigger
+          (
+            sleep $((DELAY_MINUTES * 60))
+            echo "⏰ $DELAY_MINUTES minutes elapsed, triggering retry #$NEXT_RETRY now..."
             
-            echo "⏰ Scheduling retry #$retry_number after $delay_label..."
+            curl -X POST \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              -H "Content-Type: application/json" \
+              "https://api.github.com/repos/${{ github.repository }}/actions/workflows/vault-action-example.yml/dispatches" \
+              -d "{
+                \"ref\": \"${{ github.ref_name }}\",
+                \"inputs\": {
+                  \"vault_id\": \"${{ github.event.inputs.vault_id }}\",
+                  \"action_type\": \"${{ github.event.inputs.action_type }}\",
+                  \"transaction_hash\": \"${{ github.event.inputs.transaction_hash }}\",
+                  \"amount\": \"${{ github.event.inputs.amount }}\",
+                  \"user_address\": \"${{ github.event.inputs.user_address }}\",
+                  \"timestamp\": \"${{ github.event.inputs.timestamp }}\",
+                  \"retry_count\": \"$NEXT_RETRY\",
+                  \"original_timestamp\": \"$ORIGINAL_TIMESTAMP\"
+                }
+              }"
             
-            # Convert minutes to seconds
-            local delay_seconds=$((delay_minutes * 60))
-            
-            # Schedule the retry using a background process
-            (
-              sleep $delay_seconds
-              echo "🔄 Executing retry #$retry_number after $delay_label"
-              
-              curl -X POST \
-                -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                -H "Accept: application/vnd.github.v3+json" \
-                -H "Content-Type: application/json" \
-                "https://api.github.com/repos/${{ github.repository }}/actions/workflows/vault-action-example.yml/dispatches" \
-                -d "{
-                  \"ref\": \"${{ github.ref_name }}\",
-                  \"inputs\": {
-                    \"vault_id\": \"${{ github.event.inputs.vault_id }}\",
-                    \"action_type\": \"${{ github.event.inputs.action_type }}\",
-                    \"transaction_hash\": \"${{ github.event.inputs.transaction_hash }}\",
-                    \"amount\": \"${{ github.event.inputs.amount }}\",
-                    \"user_address\": \"${{ github.event.inputs.user_address }}\",
-                    \"timestamp\": \"${{ github.event.inputs.timestamp }}\",
-                    \"retry_count\": \"$retry_number\",
-                    \"original_timestamp\": \"$ORIGINAL_TIMESTAMP\"
-                  }
-                }"
-              
-              if [ $? -eq 0 ]; then
-                echo "✅ Retry #$retry_number scheduled successfully"
-              else
-                echo "❌ Failed to schedule retry #$retry_number"
-              fi
-            ) &
-          }
+            if [ $? -eq 0 ]; then
+              echo "✅ Retry #$NEXT_RETRY triggered successfully"
+            else
+              echo "❌ Failed to trigger retry #$NEXT_RETRY"
+            fi
+          ) &
           
-          # Schedule all retries
-          schedule_retry 3 1 "3 minutes"
-          schedule_retry 10 2 "10 minutes"  
-          schedule_retry 30 3 "30 minutes"
-          schedule_retry 60 4 "1 hour"
-          schedule_retry 180 5 "3 hours"
-          
-          echo "🎯 All retries scheduled successfully!"
-          echo "The workflow will re-trigger itself at:"
-          echo "- 3 minutes from now"
-          echo "- 10 minutes from now"
-          echo "- 30 minutes from now"
-          echo "- 1 hour from now"
-          echo "- 3 hours from now"
+          # Don't wait for the background process - action will complete quickly
+          echo "🚀 Action completing now. Retry #$NEXT_RETRY will auto-trigger in $DELAY_MINUTES minutes."
+          echo "📊 You'll see a new separate GitHub Action run appear in $DELAY_MINUTES minutes."
           
       - name: Send notification
         if: github.event.inputs.action_type == 'deposit'
