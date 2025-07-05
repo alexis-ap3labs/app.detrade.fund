@@ -1589,44 +1589,32 @@
         return;
       }
 
-      // ⭐ Délais échelonnés pour les synchronisations
-      const delays = [
-        { minutes: 3, label: '3 minutes' },
-        { minutes: 10, label: '10 minutes' },
-        { minutes: 30, label: '30 minutes' },
-        { minutes: 60, label: '1 hour' },
-        { minutes: 180, label: '3 hours' }
-      ];
+      console.log('[triggerSubgraphSync] Triggering subgraph sync with retries for:', repoName);
 
-      console.log('[triggerSubgraphSync] Scheduling multiple subgraph syncs for:', repoName);
-
-      // Lancer toutes les synchronisations en parallèle avec leurs délais respectifs
-      delays.forEach(({ minutes, label }) => {
-        setTimeout(async () => {
-          try {
-            console.log(`[triggerSubgraphSync] Triggering sync after ${label} for:`, repoName);
-            
-            const response = await fetch('/api/trigger-subgraph-sync', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ repoName })
-            });
-
-            if (!response.ok) {
-              const errorData = await response.text();
-              console.error(`[triggerSubgraphSync] API error after ${label}:`, response.status, errorData);
-              return;
-            }
-
-            const result = await response.json();
-            console.log(`[triggerSubgraphSync] Success after ${label}:`, result);
-          } catch (error) {
-            console.error(`[triggerSubgraphSync] Error after ${label}:`, error);
-          }
-        }, minutes * 60 * 1000); // Convertir en millisecondes
+      // ⭐ Appel à l'API serveur qui gère les retries côté serveur
+      const response = await fetch('/api/trigger-subgraph-sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          repoName,
+          enableRetries: true 
+        })
       });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error(`[triggerSubgraphSync] API error:`, response.status, errorData);
+        return;
+      }
+
+      const result = await response.json();
+      console.log(`[triggerSubgraphSync] Success:`, result);
+      
+      if (result.retriesScheduled) {
+        console.log(`[triggerSubgraphSync] ${result.retriesScheduled} retries scheduled on server for ${repoName}`);
+      }
 
     } catch (error) {
       console.error('[triggerSubgraphSync] Error:', error);
