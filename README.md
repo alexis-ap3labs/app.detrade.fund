@@ -124,3 +124,4 @@ A state-of-the-art full-stack DeFi application for actively managed yield vaults
 ---
 
 **DeTrade Fund** combines traditional financial expertise with cutting-edge blockchain technology to deliver superior risk-adjusted returns in the DeFi ecosystem.
+# Test permissions fix
