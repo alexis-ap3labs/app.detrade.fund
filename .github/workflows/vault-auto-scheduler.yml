@@ -19,6 +19,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         
+      - name: Test basic functionality
+        run: |
+          echo "🚀 Vault Auto Scheduler is working!"
+          echo "Triggered by: ${{ github.event_name }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Repository: ${{ github.repository }}"
+        
       - name: Trigger vault actions for all vaults
         run: |
           echo "🚀 Starting automatic vault action triggers"
