@@ -1,13 +1,13 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
-// Cette variable sera partagée avec l'autre endpoint
-// En production, utilisez Redis ou une base de données pour persister entre les redémarrages
+// This variable will be shared with the other endpoint
+// In production, use Redis or a database to persist between restarts
 declare global {
   var scheduledRetries: Map<string, { timeouts: NodeJS.Timeout[], scheduledAt: number }>;
 }
 
-// Initialiser si pas déjà fait
+// Initialize if not already done
 if (!global.scheduledRetries) {
   global.scheduledRetries = new Map();
 }
@@ -17,7 +17,7 @@ export const GET: RequestHandler = async ({ url }) => {
     const repoName = url.searchParams.get('repoName');
     
     if (repoName) {
-      // Status pour un vault spécifique
+      // Status for a specific vault
       const retryInfo = global.scheduledRetries.get(repoName);
       
       if (!retryInfo) {
@@ -32,7 +32,7 @@ export const GET: RequestHandler = async ({ url }) => {
       const scheduledAt = retryInfo.scheduledAt;
       const timeSinceScheduled = now - scheduledAt;
       
-      // Calculer les prochains délais
+      // Calculate next delays
       const delays = [
         { minutes: 3, label: '3 minutes' },
         { minutes: 10, label: '10 minutes' },
@@ -65,7 +65,7 @@ export const GET: RequestHandler = async ({ url }) => {
       });
       
     } else {
-      // Status pour tous les vaults
+      // Status for all vaults
       const allRetries = Array.from(global.scheduledRetries.entries()).map(([repo, info]) => {
         const now = Date.now();
         return {

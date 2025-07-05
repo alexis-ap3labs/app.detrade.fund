@@ -1003,7 +1003,14 @@
       });
 
       // ⭐ Déclencher l'actualisation du subgraph après confirmation blockchain
-      await triggerSubgraphSync(vaultId);
+      await triggerSubgraphSync(vaultId, {
+        vaultId: vaultId,
+        action: 'withdraw',
+        transactionHash: hash,
+        amount: claimableRedeemAmount,
+        userAddress: $wallet.address || '',
+        timestamp: new Date().toISOString()
+      });
 
     } catch (error) {
       console.error('[handleClaim] Error:', error);
@@ -1122,7 +1129,14 @@
       });
 
       // ⭐ Déclencher l'actualisation du subgraph après confirmation blockchain
-      await triggerSubgraphSync(vaultId);
+      await triggerSubgraphSync(vaultId, {
+        vaultId: vaultId,
+        action: activeTab,
+        transactionHash: hash,
+        amount: depositAmount,
+        userAddress: $wallet.address || '',
+        timestamp: new Date().toISOString()
+      });
 
       // Mettre à jour immédiatement l'état des pending/claimables
       if (activeTab === 'withdraw') {
@@ -1574,7 +1588,7 @@
   });
 
   // Fonction pour déclencher l'actualisation du subgraph
-  async function triggerSubgraphSync(vaultId: string) {
+  async function triggerSubgraphSync(vaultId: string, transactionData?: any) {
     try {
       // Mapping des vaultId vers les repoName
       let repoName: string;
@@ -1591,7 +1605,7 @@
 
       console.log('[triggerSubgraphSync] Triggering subgraph sync with retries for:', repoName);
 
-      // ⭐ Appel à l'API serveur qui gère les retries côté serveur
+      // ⭐ Appel à l'API serveur qui gère les retries via GitHub Actions
       const response = await fetch('/api/trigger-subgraph-sync', {
         method: 'POST',
         headers: {
@@ -1599,7 +1613,15 @@
         },
         body: JSON.stringify({ 
           repoName,
-          enableRetries: true 
+          enableRetries: true,
+          transactionData: transactionData || {
+            vaultId: vaultId,
+            action: 'unknown',
+            transactionHash: '',
+            amount: '0',
+            userAddress: $wallet.address || '',
+            timestamp: new Date().toISOString()
+          }
         })
       });
 
@@ -1612,8 +1634,12 @@
       const result = await response.json();
       console.log(`[triggerSubgraphSync] Success:`, result);
       
+      if (result.vaultActionTriggered) {
+        console.log(`[triggerSubgraphSync] 🎯 Vault action workflow triggered with auto-retries!`);
+      }
+      
       if (result.retriesScheduled) {
-        console.log(`[triggerSubgraphSync] ${result.retriesScheduled} retries scheduled on server for ${repoName}`);
+        console.log(`[triggerSubgraphSync] ${result.retriesScheduled} retries scheduled via GitHub Actions for ${repoName}`);
       }
 
     } catch (error) {
@@ -1703,7 +1729,14 @@
       });
 
       // ⭐ Déclencher l'actualisation du subgraph après confirmation blockchain
-      await triggerSubgraphSync(vaultId);
+      await triggerSubgraphSync(vaultId, {
+        vaultId: vaultId,
+        action: 'deposit',
+        transactionHash: hash,
+        amount: fromWei(assets.toString()),
+        userAddress: $wallet.address || '',
+        timestamp: new Date().toISOString()
+      });
 
       // Rafraîchir les données après le claim
       await Promise.all([

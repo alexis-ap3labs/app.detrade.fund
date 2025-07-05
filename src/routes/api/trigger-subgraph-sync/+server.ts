@@ -2,21 +2,21 @@ import { json } from '@sveltejs/kit';
 import { PRIVATE_GITHUB_TOKEN } from '$env/static/private';
 import type { RequestHandler } from './$types';
 
-// Store global pour les timeouts (en production, utilisez Redis ou une base de données)
+// Global store for timeouts (in production, use Redis or a database)
 declare global {
   var scheduledRetries: Map<string, { timeouts: NodeJS.Timeout[], scheduledAt: number }>;
 }
 
-// Initialiser si pas déjà fait
+// Initialize if not already done
 if (!global.scheduledRetries) {
   global.scheduledRetries = new Map();
 }
 
 export const POST: RequestHandler = async ({ request }) => {
   try {
-    const { repoName, enableRetries = true } = await request.json();
+    const { repoName, enableRetries = true, transactionData } = await request.json();
 
-    // Configuration pour le workflow subgraph
+    // Configuration for the subgraph workflow
     const owner = 'detradefund';
     const repo = 'subgraph';
     const ref = 'master';
@@ -36,7 +36,57 @@ export const POST: RequestHandler = async ({ request }) => {
       );
     }
 
-    // Fonction pour déclencher un workflow
+    // Function to trigger the vault action workflow with retry system
+    async function triggerVaultActionWorkflow() {
+      try {
+        console.log('Triggering vault action workflow with retry system for:', repoName);
+
+        // We need transaction data to trigger the vault action
+        if (!transactionData) {
+          console.log('No transaction data provided, skipping vault action workflow');
+          return { success: false, error: 'No transaction data provided' };
+        }
+
+        const response = await fetch(
+          `https://api.github.com/repos/${PRIVATE_GITHUB_TOKEN ? 'detradefund' : 'your-org'}/app.detrade.fund/actions/workflows/vault-action-example.yml/dispatches`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `token ${PRIVATE_GITHUB_TOKEN}`,
+              'Accept': 'application/vnd.github.v3+json',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              ref: 'main',
+              inputs: {
+                vault_id: transactionData.vaultId || repoName,
+                action_type: transactionData.action || 'deposit',
+                transaction_hash: transactionData.transactionHash || '',
+                amount: transactionData.amount || '0',
+                user_address: transactionData.userAddress || '',
+                timestamp: transactionData.timestamp || new Date().toISOString(),
+                retry_count: '0',
+                original_timestamp: transactionData.timestamp || new Date().toISOString()
+              }
+            })
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.text();
+          console.error('GitHub API error for vault action:', response.status, errorData);
+          return { success: false, error: errorData };
+        }
+
+        console.log('Vault action workflow triggered successfully');
+        return { success: true };
+      } catch (error) {
+        console.error('Error triggering vault action workflow:', error);
+        return { success: false, error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+
+    // Function to trigger a workflow
     async function triggerWorkflow(delayLabel?: string) {
       try {
         console.log(`Attempting to trigger workflow${delayLabel ? ` (${delayLabel})` : ''}:`, {
@@ -80,48 +130,21 @@ export const POST: RequestHandler = async ({ request }) => {
       }
     }
 
-    // Déclencher immédiatement
-    const immediateResult = await triggerWorkflow();
+    // Trigger the vault action workflow with retry system
+    const vaultActionResult = await triggerVaultActionWorkflow();
     
-    if (!immediateResult.success) {
+    if (!vaultActionResult.success) {
       return json(
-        { error: `Failed to trigger immediate workflow: ${immediateResult.error}` },
+        { error: `Failed to trigger vault action workflow: ${vaultActionResult.error}` },
         { status: 500 }
       );
     }
 
-    // Programmer les retries échelonnés côté serveur si activé
-    if (enableRetries) {
-      // Nettoyer les anciens timeouts s'ils existent
-      const existingRetryInfo = global.scheduledRetries.get(repoName);
-      if (existingRetryInfo) {
-        existingRetryInfo.timeouts.forEach(timeout => clearTimeout(timeout));
-      }
-
-      // Délais échelonnés
-      const delays = [
-        { minutes: 3, label: '3 minutes' },
-        { minutes: 10, label: '10 minutes' },
-        { minutes: 30, label: '30 minutes' },
-        { minutes: 60, label: '1 hour' },
-        { minutes: 180, label: '3 hours' }
-      ];
-
-      // Programmer les retries
-      const timeouts = delays.map(({ minutes, label }) => {
-        return setTimeout(async () => {
-          console.log(`[Server Retry] Triggering sync after ${label} for:`, repoName);
-          await triggerWorkflow(label);
-        }, minutes * 60 * 1000);
-      });
-
-      // Stocker les timeouts pour pouvoir les annuler si nécessaire
-      global.scheduledRetries.set(repoName, {
-        timeouts,
-        scheduledAt: Date.now()
-      });
-
-      console.log(`[Server Retry] Scheduled ${delays.length} retries for ${repoName}`);
+    // Also trigger immediate subgraph sync as fallback
+    const immediateResult = await triggerWorkflow();
+    
+    if (!immediateResult.success) {
+      console.warn('Immediate subgraph sync failed, but vault action workflow was triggered');
     }
     
     return json({ 
@@ -131,8 +154,9 @@ export const POST: RequestHandler = async ({ request }) => {
       repository: `${owner}/${repo}`,
       ref: ref,
       repoName: repoName,
-      retriesScheduled: enableRetries ? 5 : 0,
-      immediate: immediateResult.success
+      vaultActionTriggered: vaultActionResult.success,
+      immediateSync: immediateResult.success,
+      retriesScheduled: enableRetries && vaultActionResult.success ? 5 : 0
     });
 
   } catch (error) {
@@ -144,7 +168,7 @@ export const POST: RequestHandler = async ({ request }) => {
   }
 };
 
-// Endpoint pour annuler les retries programmés
+// Endpoint to cancel scheduled retries
 export const DELETE: RequestHandler = async ({ request }) => {
   try {
     const { repoName } = await request.json();
